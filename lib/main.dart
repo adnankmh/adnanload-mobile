@@ -202,15 +202,10 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
             child: Image.asset('assets/adnanload_mark.png', height: 42,
               width: 42, fit: BoxFit.cover)),
           const SizedBox(width: 9),
-          Expanded(child: ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(colors: [
-              const Color(0xFF00F5D4), colors.primary, colors.secondary,
-            ]).createShader(bounds),
-            child: const Text('ADNANLOAD',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 23, letterSpacing: .6,
-                fontWeight: FontWeight.w900, color: Colors.white)),
-          )),
+          Expanded(child: Text('ADNANLOAD',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 21, letterSpacing: .7,
+              fontWeight: FontWeight.w900, color: colors.onSurface))),
         ]),
         actions: [
           IconButton(tooltip:s.t('batchTitle'),onPressed:_showBatch,

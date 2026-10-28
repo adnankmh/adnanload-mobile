@@ -6,8 +6,7 @@ import '../core/url_guard.dart';
 import '../services/download_repository.dart';
 import '../widgets/premium_download_card.dart';
 
-/// The supplied cyan/violet design, connected to the real download repository.
-/// No demo links, simulated timers, fake sizes, or fake progress are used.
+/// Original dashboard using measured transfer states, never demo counters.
 class NeonHomePage extends StatefulWidget {
   final DownloadRepository repo;
   final AppStrings strings;
@@ -15,184 +14,130 @@ class NeonHomePage extends StatefulWidget {
   final VoidCallback onSeeAll;
   const NeonHomePage({super.key, required this.repo, required this.strings,
     required this.onDownload, required this.onSeeAll});
-
   @override
   State<NeonHomePage> createState() => _NeonHomePageState();
 }
 
 class _NeonHomePageState extends State<NeonHomePage> {
-  final TextEditingController _urlController = TextEditingController();
-  int categoryIndex = 0;
-  final categories = const [
-    (key: 'platformVideo', icon: Icons.videocam_rounded, color: Color(0xFF00F5D4), kind: 'video'),
-    (key: 'platformSocial', icon: Icons.public_rounded, color: Color(0xFF3A86FF), kind: 'video'),
-    (key: 'platformReels', icon: Icons.movie_filter_rounded, color: Color(0xFFFF006E), kind: 'video'),
-    (key: 'platformAudio', icon: Icons.headphones_rounded, color: Color(0xFFFFBE0B), kind: 'mp3'),
-    (key: 'platformCloud', icon: Icons.cloud_download_rounded, color: Color(0xFF8338EC), kind: 'direct'),
-  ];
-
+  final controller = TextEditingController();
+  String kind = 'direct';
   @override
-  void dispose() { _urlController.dispose(); super.dispose(); }
+  void dispose() {controller.dispose();super.dispose();}
 
-  void _notify(String key) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      behavior: SnackBarBehavior.floating,
-      content: Text(widget.strings.t(key)),
-    ));
-  }
-
-  Future<void> _paste() async {
-    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text?.trim() ?? '';
-    if (!mounted) return;
-    if (text.isEmpty) { _notify('clipboardEmpty'); return; }
-    setState(() => _urlController.text = text);
-  }
-
-  void _newDownload() {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) { _notify('downloadLinkFirst'); return; }
-    if (UrlGuard.validate(url) == null) { _notify('validUrl'); return; }
-    // Ordinary downloadable files should not be passed to a video extractor.
-    final resourcePath = Uri.parse(url).path.toLowerCase();
-    final fileLink = RegExp(r'\.(pdf|zip|rar|7z|apk|exe|iso|docx?|xlsx?|pptx?|csv|png|jpe?g|gif|webp|tar|gz|mp4|mp3|wav|flac|mov|mkv|webm)$',
-      caseSensitive: false).hasMatch(resourcePath);
+  void start() {
+    final url = controller.text.trim();
+    if (UrlGuard.validate(url) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.strings.t('validUrl'))));
+      return;
+    }
     final mode = PlaylistRules.looksLikePlaylist(url) ? 'playlist'
-      : fileLink ? 'direct'
-      : categoryIndex == 3 ? 'mp3'
-      : categoryIndex == 4 ? 'direct'
-      : PlaylistRules.looksLikeMediaSite(url) ? 'video'
-      : 'direct';
+      : kind == 'direct' && PlaylistRules.looksLikeMediaSite(url) ? 'video' : kind;
     widget.onDownload(url, mode);
+  }
+
+  Future<void> paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    setState(() => controller.text = data?.text ?? '');
   }
 
   @override
   Widget build(BuildContext context) {
-    final s = widget.strings;
-    final colors = Theme.of(context).colorScheme;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final items = widget.repo.items;
-    final active = items.where((e) => e.status == 'running' || e.status == 'waiting').toList();
-    final shown = [
-      ...active,
-      ...items.where((e) => e.status != 'running' && e.status != 'waiting'),
-    ].take(5).toList();
-    return Container(
-      decoration: BoxDecoration(gradient: RadialGradient(
-        center: const Alignment(-.85, -.75), radius: 1.6,
-        colors: isLight ? [const Color(0xFFF4FAFF), Theme.of(context).scaffoldBackgroundColor]
-          : [Color.lerp(colors.primary, const Color(0xFF162238), .84)!,
-            Theme.of(context).scaffoldBackgroundColor],
-      )),
-      child: ListView(padding: const EdgeInsets.symmetric(horizontal: 18), children: [
-        const SizedBox(height: 18),
-        Container(
-          padding: const EdgeInsets.all(17),
-          decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: .93),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colors.primary.withValues(alpha: .40), width: 1.3),
-            boxShadow: [
-              BoxShadow(color: colors.primary.withValues(alpha: .11), blurRadius: 24, offset: const Offset(0, 6)),
-              BoxShadow(color: colors.secondary.withValues(alpha: .10), blurRadius: 22, offset: const Offset(0, -3)),
-            ],
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(s.t('qualitySelect'), style: TextStyle(
-              color: colors.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 14),
+    final t = widget.strings.t;
+    final cs = Theme.of(context).colorScheme;
+    final entries = widget.repo.items;
+    final active = entries.where((e) =>
+        const {'running','waiting','paused','submitting','verifying'}.contains(e.status)).length;
+    final complete = entries.where((e) => e.status == 'complete').length;
+    final shown = entries.take(4).toList();
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+      children: [
+        Text('ADNANLOAD', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+          fontWeight: FontWeight.w900, letterSpacing: .5)),
+        const SizedBox(height: 3),
+        Text('DOWNLOAD STUDIO', style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: cs.primary, letterSpacing: 2, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 22),
+        Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Icon(Icons.link_rounded,color:cs.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(t('pasteLink'), style: const TextStyle(fontWeight:FontWeight.w700))),
+            ]),
+            const SizedBox(height: 13),
             TextField(
-              controller: _urlController,
-              textDirection: TextDirection.ltr,
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _newDownload(),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search_rounded),
-                hintText: s.t('pasteLink'),
-                suffixIcon: TextButton(onPressed: _paste, child: Text(s.t('paste'))),
-              ),
-            ),
+              controller:controller, textDirection:TextDirection.ltr,
+              keyboardType:TextInputType.url,
+              textInputAction:TextInputAction.go, onSubmitted:(_)=>start(),
+              decoration:InputDecoration(
+                hintText:'https://',prefixIcon:const Icon(Icons.link_rounded),
+                suffixIcon:IconButton(tooltip:t('paste'),onPressed:paste,
+                  icon:const Icon(Icons.content_paste_rounded)))),
             const SizedBox(height: 14),
-            SizedBox(height: 52, child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  const Color(0xFF00F5D4), colors.primary, colors.secondary,
-                ]),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: colors.primary.withValues(alpha: .27), blurRadius: 16, offset: const Offset(0, 4))],
-              ),
-              child: ElevatedButton.icon(
-                onPressed: _newDownload,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
-                  foregroundColor: const Color(0xFF0B0F17),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                icon: const Icon(Icons.file_download_outlined, size: 24),
-                label: Text(s.t('download'), style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w800)),
-              ),
-            )),
-          ]),
-        ),
-        const SizedBox(height: 23),
-        SizedBox(height: 94, child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: categories.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (context, i) {
-            final category = categories[i];
-            final selected = i == categoryIndex;
-            return InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => setState(() => categoryIndex = i),
-              child: AnimatedContainer(duration: const Duration(milliseconds: 220),
-                width: 74, padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 3),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    category.color.withValues(alpha: selected ? .27 : .15),
-                    colors.surface.withValues(alpha: .95),
-                  ]),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: category.color.withValues(alpha: selected ? .85 : .30),
-                    width: selected ? 1.5 : 1),
-                  boxShadow: selected ? [BoxShadow(color: category.color.withValues(alpha: .18), blurRadius: 14)] : [],
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(category.icon, color: category.color, size: 26),
-                  const SizedBox(height: 9),
-                  Text(s.t(category.key), textAlign: TextAlign.center, maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                      color: colors.onSurface.withValues(alpha: .85))),
-                ]),
-              ),
-            );
-          },
-        )),
-        const SizedBox(height: 25),
+            Wrap(spacing: 8,runSpacing: 8,children: [
+              for(final option in [
+                ('direct',Icons.download_rounded,'direct'),
+                ('video',Icons.smart_display_outlined,'video'),
+                ('mp3',Icons.music_note_rounded,'mp3'),
+                ('playlist',Icons.playlist_play_rounded,'playlist'),
+              ])
+                ChoiceChip(
+                  avatar:Icon(option.$2,size:19),
+                  label:Text(t(option.$3)),
+                  selected: kind==option.$1,
+                  onSelected:(_)=>setState(()=>kind=option.$1)),
+            ]),
+            const SizedBox(height: 17),
+            FilledButton.icon(onPressed:start,icon:const Icon(Icons.download_rounded),
+              label:Text(t('download'),style: const TextStyle(fontWeight:FontWeight.bold,fontSize:16))),
+          ],
+        ))),
+        const SizedBox(height: 15),
         Row(children: [
-          Expanded(child: Text(s.t('activeDownloads'),
-            style: TextStyle(color: colors.onSurface, fontSize: 19, fontWeight: FontWeight.bold))),
-          TextButton(onPressed: widget.onSeeAll,
-            child: Text(s.t('seeAll'), style: TextStyle(color: colors.primary, fontWeight: FontWeight.w600))),
+          Expanded(child: _Counter(label:t('active'),value:active,icon:Icons.downloading_rounded)),
+          const SizedBox(width: 10),
+          Expanded(child: _Counter(label:t('finished'),value:complete,icon:Icons.task_alt_rounded)),
         ]),
-        const SizedBox(height: 12),
-        if (shown.isEmpty)
-          Container(padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(color: colors.surface.withValues(alpha: .9),
-              borderRadius: BorderRadius.circular(20)),
-            child: Column(children: [
-              Icon(Icons.downloading_rounded, color: colors.primary, size: 58),
-              const SizedBox(height: 8),
-              Text(s.t('empty'), style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(s.t('emptyDesc'), textAlign: TextAlign.center),
-            ]))
-        else ...shown.map((e) => PremiumDownloadCard(key: ValueKey(e.id),
-          item: e, repo: widget.repo, strings: s)),
-        const SizedBox(height: 28),
-      ]),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(child: Text(t('activeDownloads'), style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w800))),
+          TextButton.icon(onPressed:widget.onSeeAll,
+            label:Text(t('seeAll')), icon:const Icon(Icons.arrow_forward_rounded)),
+        ]),
+        const SizedBox(height: 10),
+        if (shown.isEmpty) Card(child:Padding(padding:const EdgeInsets.all(25),
+          child:Column(children: [
+            Icon(Icons.cloud_download_outlined,size:46,color:cs.primary),
+            const SizedBox(height: 9),
+            Text(t('empty'),style:const TextStyle(fontWeight:FontWeight.bold)),
+            const SizedBox(height: 7),
+            Text(t('emptyDesc'),textAlign:TextAlign.center),
+          ])))
+        else for (final item in shown)
+          PremiumDownloadCard(key:ValueKey(item.id),item:item,repo:widget.repo,strings:widget.strings),
+      ],
     );
+  }
+}
+
+class _Counter extends StatelessWidget {
+  final String label;
+  final int value;
+  final IconData icon;
+  const _Counter({required this.label,required this.value,required this.icon});
+  @override
+  Widget build(BuildContext context) {
+    final colors=Theme.of(context).colorScheme;
+    return Card(child: Padding(padding:const EdgeInsets.all(15),child:Row(children: [
+      Icon(icon,color:colors.primary,size:28),
+      const SizedBox(width: 10),
+      Column(crossAxisAlignment:CrossAxisAlignment.start,children: [
+        Text('$value',style:Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight:FontWeight.w900)),
+        Text(label,style:Theme.of(context).textTheme.labelMedium),
+      ]),
+    ])));
   }
 }

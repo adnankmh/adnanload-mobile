@@ -242,6 +242,22 @@ class PremiumDownloadCard extends StatelessWidget {
         if (item.scheduledAt > 0 && item.status == 'waiting')
           Text('${t('scheduled')}: ${DateTime.fromMillisecondsSinceEpoch(item.scheduledAt).toString().substring(0,16)}',
             style:TextStyle(color:dim,fontSize:12)),
+        if (isComplete && item.path.isNotEmpty)
+          Padding(padding: const EdgeInsets.only(top: 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.path, maxLines: 2, overflow: TextOverflow.ellipsis,
+                textDirection: TextDirection.ltr,
+                style: TextStyle(color: dim, fontSize: 11)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 8, runSpacing: 4, children: [
+                ActionChip(avatar: const Icon(Icons.folder_open_rounded, size: 18),
+                  label: Text(t('open')), onPressed: () => _act(context, 'open')),
+                if (!item.isPlaylist) ActionChip(
+                  avatar: const Icon(Icons.save_alt_rounded, size: 18),
+                  label: Text(t('exportDownloads')),
+                  onPressed: () => _act(context, 'export')),
+              ]),
+            ])),
         if (item.actualSha256.isNotEmpty) Text('SHA-256: ${item.actualSha256.substring(0,16)}…',
           style:TextStyle(color:dim,fontSize:11)),
         if (item.error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 9),
