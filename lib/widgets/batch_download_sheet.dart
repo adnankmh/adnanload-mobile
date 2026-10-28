@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
 import '../core/batch_links.dart';
+import '../core/smart_link.dart';
 import '../services/download_repository.dart';
 
 class BatchDownloadSheet extends StatefulWidget {
@@ -17,6 +18,7 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
   late final TextEditingController controller = TextEditingController(text:widget.initialText);
   bool busy=false;
   bool later=false;
+  String mode='auto';
   @override void dispose(){ controller.dispose();super.dispose(); }
   @override Widget build(BuildContext context){
     final t=widget.strings.t;
@@ -33,6 +35,13 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
             decoration:InputDecoration(hintText:'https://example.com/file.zip\nhttps://example.com/video.mp4',
               border:const OutlineInputBorder())),
           const SizedBox(height:8),Text('${t('batchUnique')}: ${unique.length} / ${BatchLinks.maxLinks}'),
+          Wrap(spacing: 6, children: [
+            for (final entry in const [
+              ('auto','autoDetect'), ('direct','direct'),
+              ('video','video'), ('mp3','mp3')])
+              ChoiceChip(label:Text(t(entry.$2)), selected:mode==entry.$1,
+                onSelected:busy?null:(_)=>setState(()=>mode=entry.$1)),
+          ]),
           SwitchListTile(title:Text(t('batchLater')),value:later,
             onChanged:busy?null:(v)=>setState(()=>later=v)),
           const SizedBox(height:10),FilledButton.icon(
@@ -43,7 +52,10 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
               try {
                 var count=0;
                 for(final url in unique){
-                  await widget.repo.enqueue(url:url,name:'',kind:'direct',startNow:!later);
+                  final type=SmartLink.kind(url, preferred:mode);
+                  await widget.repo.enqueue(url:url,name:'',
+                    kind:type=='playlist'?'video':type,
+                    playlist:type=='playlist',priority:8,startNow:!later);
                   count++;
                 }
                 if(context.mounted){Navigator.pop(context);ScaffoldMessenger.of(context).showSnackBar(
