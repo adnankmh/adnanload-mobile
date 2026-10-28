@@ -59,7 +59,9 @@ if app_gradle.exists():
 
 props=android/'gradle.properties'
 content=props.read_text(encoding='utf-8') if props.exists() else ''
-pattern=r'(?m)^android\.suppressUnsupportedCompileSdk=.*
+lines=[line for line in content.splitlines() if not line.startswith('android.suppressUnsupportedCompileSdk=')]
+lines.append('android.suppressUnsupportedCompileSdk=37')
+props.write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
 print('Manifest configured:',manifest.relative_to(root))
 
