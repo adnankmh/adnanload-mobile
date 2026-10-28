@@ -170,7 +170,7 @@ jobs:
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ADNANLOAD-v2.2.2-RELEASE-APK
+          name: ADNANLOAD-v2.3.0-RELEASE-APK
           path: |
             build/app/outputs/flutter-apk/*.apk
             build/release-checksums/*.txt
