@@ -54,6 +54,7 @@ android { compileSdk = flutter.compileSdkVersion
             self.assertEqual(text.count('coreLibraryDesugaring('),1)
             self.assertEqual(text.count('isCoreLibraryDesugaringEnabled'),1)
             self.assertEqual(text.count('proguardFiles('),1)
+            self.assertEqual(text.count('useLegacyPackaging = true'),1)
             self.assertEqual(text.count('isMinifyEnabled = false'),1)
             self.assertEqual(text.count('isShrinkResources = false'),1)
             props=(root/'android/gradle.properties').read_text()
@@ -67,6 +68,8 @@ android { compileSdk = flutter.compileSdkVersion
             self.assertIn('version "2.1.0"',(root/'android/settings.gradle.kts').read_text())
             manifest=(app/'src/main/AndroidManifest.xml').read_text()
             self.assertIn('FOREGROUND_SERVICE_DATA_SYNC',manifest)
+            self.assertNotIn('android:extractNativeLibs',manifest)
+            self.assertNotIn('tools:replace="android:extractNativeLibs"',manifest)
             self.assertIn('UIDTJobService',manifest)
             ET.parse(app/'src/main/AndroidManifest.xml')
             for lang in ('values','values-ar'):
