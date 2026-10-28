@@ -104,11 +104,29 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   }
 
   void _fromExternalLink(String raw) {
-    if (!mounted) return;
-    if (UrlGuard.validate(raw) == null) return;
+    if (!mounted || UrlGuard.validate(raw) == null) return;
+    final type = SmartLink.kind(raw);
+    if (widget.repo.autoStartSharedLinks) {
+      unawaited(_startSharedDownload(raw, type));
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _showDownload(raw, SmartLink.kind(raw));
+      if (mounted) _showDownload(raw, type);
     });
+  }
+
+  Future<void> _startSharedDownload(String url, String type) async {
+    try {
+      await widget.repo.enqueue(url:url, name:'', kind:type=='playlist'?'video':type,
+        playlist:type=='playlist', priority:8);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.repo.language=='ar'
+          ?'أُضيف الرابط إلى التنزيلات':'Link added to download queue')));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.repo.language=='ar'
+          ?'تعذر إضافة الرابط؛ راجع التنزيلات':'Unable to queue link; check Downloads')));
+    }
   }
 
   void _receiveFiles(List<SharedMediaFile> items) {
@@ -120,7 +138,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
       if(incoming.length > 1){_showBatch(incoming.join('\n'));}
       else {
         final raw=incoming.single;
-        _showDownload(raw, SmartLink.kind(raw));
+        _fromExternalLink(raw);
       }
     });
   }
@@ -158,7 +176,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
     } else if (urls.length>1) {
       _showBatch(urls.join('\n'));
     } else {
-      _showDownload(urls.single, SmartLink.kind(urls.single));
+      _fromExternalLink(urls.single);
     }
   }
 
