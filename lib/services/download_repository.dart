@@ -10,9 +10,11 @@ import 'package:crypto/crypto.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../core/url_guard.dart';
 import '../core/media_failure.dart';
+import '../core/smart_link.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../core/transfer_policy.dart';
@@ -63,6 +65,8 @@ class DownloadRepository extends ChangeNotifier {
   bool _notificationsAsked = false;
   bool wifiOnly = false;
   bool notifications = true;
+  bool autoOpenSafeFiles = false;
+  bool _appVisible = true;
   bool autoUpdateMediaEngine = false;
   bool _updateInProgress = false;
   String theme = 'dark';
@@ -84,6 +88,7 @@ class DownloadRepository extends ChangeNotifier {
     if (!const {0, 15, 25, 40}.contains(batteryFloor)) batteryFloor = 0;
     automaticRetry = _prefs!.getBool('automaticRetry') ?? true;
     notifications = _prefs!.getBool('notifications') ?? true;
+    autoOpenSafeFiles = _prefs!.getBool('autoOpenSafeFiles') ?? false;
     autoUpdateMediaEngine = _prefs!.getBool('autoUpdateMediaEngine') ?? false;
     fontScale = (_prefs!.getDouble('fontScale') ?? 1.0).clamp(.9, 1.35).toDouble();
     maxConcurrent = (_prefs!.getInt('maxConcurrent') ?? 3).clamp(1, 6).toInt();
@@ -144,6 +149,15 @@ class DownloadRepository extends ChangeNotifier {
     }
     _lastNetworkProbe = DateTime.now();
     notifyListeners();
+  }
+
+  void setAppVisible(bool value) => _appVisible = value;
+
+  /// Opening is opt-in and only for safe files while the app is foregrounded.
+  void _maybeOpenCompleted(DownloadEntry item) {
+    if (!autoOpenSafeFiles || !_appVisible || item.isPlaylist || item.path.isEmpty) return;
+    if (SmartLink.category(item.name) == 'application') return;
+    unawaited(OpenFilex.open(item.path));
   }
 
   Future<void> onForeground() async {
@@ -339,6 +353,7 @@ class DownloadRepository extends ChangeNotifier {
       // Retain the original persisted path as a fallback for old downloads.
     }
     await _confirmDownloadedFile(item);
+    if (item.status == 'complete') _maybeOpenCompleted(item);
     item.nativeQueued = false;
     item.scheduledExternally = false;
     unawaited(_pump());
@@ -714,7 +729,10 @@ class DownloadRepository extends ChangeNotifier {
         }
         item.status = produced ? 'complete' : 'error';
         item.error = produced ? '' : 'downloadedFileMissing';
-        if (produced) item.progress = 1;
+        if (produced) {
+          item.progress = 1;
+          _maybeOpenCompleted(item);
+        }
       } else {
         final failure = result.errorMessage ?? 'Media download failed';
         if (!_retryMediaIfTransient(item, failure)) {
@@ -804,7 +822,7 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   void updateSettings({String? newTheme, String? newLanguage, bool? newWifiOnly,
-    bool? newNotifications, bool? newAutoUpdateMediaEngine, int? newMaxConcurrent, int? newParallelChunks, double? newFontScale,
+    bool? newAutoOpenSafeFiles, bool? newNotifications, bool? newAutoUpdateMediaEngine, int? newMaxConcurrent, int? newParallelChunks, double? newFontScale,
     int? newBatteryFloor, bool? newAutomaticRetry, int? newStorageLimitMb}) {
     if(newStorageLimitMb != null){
       storageLimitMb = newStorageLimitMb.clamp(0,102400).toInt();
@@ -813,6 +831,7 @@ class DownloadRepository extends ChangeNotifier {
     if (newLanguage != null) language = newLanguage;
     if (newWifiOnly != null) wifiOnly = newWifiOnly;
     if (newNotifications != null) notifications = newNotifications;
+    if (newAutoOpenSafeFiles != null) autoOpenSafeFiles = newAutoOpenSafeFiles;
     if (newAutomaticRetry != null) automaticRetry = newAutomaticRetry;
     if (newBatteryFloor != null && const {0,15,25,40}.contains(newBatteryFloor)) batteryFloor = newBatteryFloor;
     if (newAutoUpdateMediaEngine != null) autoUpdateMediaEngine = newAutoUpdateMediaEngine;
@@ -823,6 +842,7 @@ class DownloadRepository extends ChangeNotifier {
     _prefs?.setString('language',language);
     _prefs?.setBool('wifiOnly',wifiOnly);
     _prefs?.setBool('notifications',notifications);
+    _prefs?.setBool('autoOpenSafeFiles',autoOpenSafeFiles);
     _prefs?.setBool('automaticRetry',automaticRetry);
     _prefs?.setInt('batteryFloor',batteryFloor);
     _prefs?.setBool('autoUpdateMediaEngine',autoUpdateMediaEngine);
