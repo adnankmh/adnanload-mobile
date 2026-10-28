@@ -1,0 +1,22 @@
+ADNANLOAD Mobile V1.7 — Validation report (2026-10-26)
+
+COMPLETED IN THIS ENVIRONMENT:
+- tools/validate_source.py: PASS (source checks, XML, Android icon resources and bilingual key parity)
+- tools/validate_release_v17.py: PASS (14/14 static contract checks)
+- Arabic/English translation key parity: PASS 257/257
+- Python build configuration: py_compile PASS
+- ZIP creation integrity test: see ZIP manifest and archive CRC check accompanying release.
+
+NOT RUN / NOT VERIFIED:
+- flutter pub get (Flutter SDK unavailable)
+- flutter analyze (Flutter SDK unavailable)
+- flutter test (Flutter SDK unavailable)
+- flutter build apk --release (Android/Flutter toolchain unavailable)
+- flutter build appbundle --release (Android/Flutter toolchain unavailable)
+- Device tests Android 14, 15, 16 (no Android emulator or device here)
+- 4G / Wi-Fi transition tests, low battery, process kill, pause/resume native notifications
+- YouTube/other media playback extraction end-to-end on Android
+- Production signing, malware scanning and app store policy review
+
+DO NOT LABEL THIS AS A PRODUCTION-READY OR DEVICE-TESTED APK.
+Run BUILD_ANDROID.bat or BUILD_ANDROID.sh with a correctly installed Flutter/Android toolchain.

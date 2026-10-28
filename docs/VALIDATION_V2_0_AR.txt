@@ -1,0 +1,15 @@
+ADNANLOAD Mobile V2.0 — Verification classification
+
+[RUN] Python static source contract & bilingual key parity
+[RUN] XML manifest syntax check
+[RUN] Python syntax validation for tooling
+[RUN] ZIP integrity / SHA-256 manifest
+[NOT RUN] flutter pub get
+[NOT RUN] flutter analyze
+[NOT RUN] flutter test
+[NOT RUN] flutter build apk / appbundle
+[NOT RUN] Android 14/15/16 device tests and live media downloads
+
+Why: Flutter/Android SDK not installed in the current execution environment.
+The source release must NOT be advertised as runtime-verified or ready for store distribution.
+External native dependencies FFmpegKit / NewPipe and extractor plugin compatibility must be checked during an Android build.

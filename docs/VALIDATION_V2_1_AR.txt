@@ -1,0 +1,20 @@
+ADNANLOAD 2.1.0+10 — VALIDATION RECORD / 2026-10-26
+
+Completed in this environment:
+- Python source/structure validator: PASS.
+- Arabic/English translation-key parity: PASS (278 matching keys).
+- Prior V1.7 source-regression contract: PASS (14 / 14).
+- V2.0 source-feature/manifest contract: PASS.
+- Real Python Android Gradle configure_android.py fixture: PASS; two runs, one JitPack/desugaring entry, icons, XML, Kotlin version.
+- GitHub Actions YAML syntactic parsing: PASS.
+- Packaging ZIP re-opened and checked: PASS.
+
+Not performed / not claimed:
+- Windows PowerShell 5.1 native execution.
+- flutter pub get / flutter analyze / flutter test.
+- Gradle assembleDebug / assembleRelease / bundleRelease.
+- APK signature validation and device/install tests.
+- Functional media downloads, codec conversion or playlist support on real Android.
+
+Reason: Flutter/Dart/Android SDK tooling was not available inside this container.
+Next verification: GitHub Actions workflow or BUILD_ANDROID.bat on a configured Windows build machine.

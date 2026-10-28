@@ -1,0 +1,39 @@
+name: adnanload_mobile
+description: ADNANLOAD Mobile for Android — direct files, media, audio and playlists.
+publish_to: none
+version: 2.1.0+10
+
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  background_downloader: ^9.6.4
+  workmanager: ^0.10.10
+  extractor: ^1.0.0
+  yt_extractor: ^0.1.0
+  ffmpeg_kit_flutter_new_full: ^2.5.7
+  receive_sharing_intent: ^1.9.0
+  shared_preferences: ^2.5.5
+  connectivity_plus: ^6.1.5
+  battery_plus: ^6.2.3
+  webview_flutter: ^4.14.1
+  path_provider: ^2.1.5
+  crypto: ^3.0.6
+  flutter_secure_storage: ^11.2.0
+  file_picker: ^13.2.0
+  share_plus: ^13.3.1
+  open_filex: ^4.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/adnanload_mark.png

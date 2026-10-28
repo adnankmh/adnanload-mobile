@@ -1,0 +1,25 @@
+ADNANLOAD Mobile 1.6.0+7 — Validation record
+Date: 2026-10-26
+Scope: Flutter / Android source only
+
+Static checks completed:
+- Python static source validation, manifest XML parsing, required files, public secrets scan.
+- Arabic/English key parity: 246 vs 246.
+- All relative lib/ imports resolved.
+- Shell BUILD_ANDROID.sh parsed by bash -n.
+- Added Dart test source: test/schedule_v16_test.dart, but it was NOT run.
+- Browser private-session cleanup and WorkManager integration contracts are present.
+
+NOT EXECUTED in this environment:
+- flutter pub get
+- flutter analyze
+- flutter test (including schedule_v16_test.dart)
+- flutter build apk / appbundle
+- Android on-device UI, WorkManager delivery and background execution tests
+- Android 14 / 15 / 16 install and notification permission tests
+- Production signing and security audits
+
+Important:
+- Passing static checks is not evidence of working mobile background jobs.
+- WorkManager jobs are best-effort, not exact-time alarms.
+- The temporary browser mode is not an isolated incognito profile.

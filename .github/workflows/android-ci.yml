@@ -1,0 +1,118 @@
+name: ADNANLOAD - Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      split_apks:
+        description: 'Also build smaller APKs for individual device CPU types'
+        type: boolean
+        default: false
+        required: false
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adnanload-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-apk:
+    name: Build Flutter release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Flutter project
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter 3.47.8 (Dart 3.13)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.8'
+          channel: stable
+          cache: true
+
+      - name: Verify SDK and repository layout
+        shell: bash
+        run: |
+          flutter --version
+          test -f pubspec.yaml
+          test -f lib/main.dart
+          test -f tools/configure_android.py
+          test -f assets/adnanload_mark.png
+
+      - name: Generate Flutter Android project
+        run: flutter create --platforms=android --org com.adnanload --project-name adnanload_mobile --no-pub .
+
+      - name: Configure Android manifest, icons and Gradle
+        run: python3 tools/configure_android.py
+
+      - name: Verify source and Android configuration
+        run: |
+          python3 tools/test_android_config.py
+          python3 tools/test_ci_signing.py
+          python3 tools/validate_release_v2.py
+
+      - name: Configure optional production-signing secrets
+        id: signing
+        env:
+          ADNANLOAD_KEYSTORE_BASE64: ${{ secrets.ADNANLOAD_KEYSTORE_BASE64 }}
+          ADNANLOAD_STORE_PASSWORD: ${{ secrets.ADNANLOAD_STORE_PASSWORD }}
+          ADNANLOAD_KEY_PASSWORD: ${{ secrets.ADNANLOAD_KEY_PASSWORD }}
+          ADNANLOAD_KEY_ALIAS: ${{ secrets.ADNANLOAD_KEY_ALIAS }}
+        run: python3 tools/configure_ci_signing.py
+
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+
+      - name: Flutter analyzer
+        run: flutter analyze
+
+      - name: Flutter unit tests
+        run: flutter test
+
+      - name: Build universal Release APK
+        run: flutter build apk --release
+
+      - name: Build smaller split Release APKs (optional)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.split_apks }}
+        run: flutter build apk --release --split-per-abi
+
+      - name: Write checksums and release metadata
+        shell: bash
+        run: |
+          mkdir -p build/release-checksums
+          cd build/app/outputs/flutter-apk
+          sha256sum *.apk > ../../../release-checksums/SHA256SUMS.txt
+          ls -lh *.apk | tee ../../../release-checksums/FILES.txt
+          echo "Signing: ${{ steps.signing.outputs.mode }}" >> ../../../release-checksums/FILES.txt
+          echo "Commit: ${{ github.sha }}" >> ../../../release-checksums/FILES.txt
+
+      - name: Upload Release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADNANLOAD-v2.1-RELEASE-APK
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/release-checksums/*.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build failure diagnostics (if any)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADNANLOAD-build-diagnostics
+          path: |
+            build/app/outputs/logs/
+            build/reports/
+          if-no-files-found: ignore
+          retention-days: 7

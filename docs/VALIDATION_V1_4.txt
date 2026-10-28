@@ -1,0 +1,6 @@
+STATUS: SOURCE IMPLEMENTATION / NOT A TESTED ANDROID APK.
+A) Python static source checks: run tools/validate_source.py
+B) Flutter/Dart SDK: not installed in this environment; flutter analyze/test/build not executed.
+C) The test/ultimate_v14_test.dart tests are authored but are not claimed to have passed.
+D) Android phone runtime, notifications, SQLite/native tasks, media engines, 3rd-party URLs, and Android PIN/secure storage all require physical/emulator testing.
+E) Secret credentials, DRM, or arbitrary private media are not extracted.

@@ -1,0 +1,14 @@
+ADNANLOAD MOBILE 1.1 - VALIDATION (2026-10-25)
+
+[PASS] Android-only source project, no iOS project files.
+[PASS] XML AndroidManifest parses; Android internet and share-intent wiring declared.
+[PASS] English/Arabic key parity: 119/119.
+[PASS] Added playlist parsing and model round-trip tests to test/.
+[PASS] Android icons present in five density buckets.
+[PASS] UTF-8 package source and scripts without BOM.
+[PASS] Playlist item options are validated and do not accept arbitrary command-line text.
+[PASS] Flutter SDK and Android SDK not present in this environment.
+[NOT RUN] flutter pub get / flutter analyze / flutter test / flutter build apk.
+[NOT RUN] Android device/emulator execution or real YouTube/social platform downloads.
+
+This report describes static checks only. A release APK is not supplied.

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bg_downloader_cancel">إلغاء</string>
+    <string name="bg_downloader_pause">إيقاف مؤقت</string>
+    <string name="bg_downloader_resume">استئناف</string>
+    <string name="bg_downloader_notification_channel_name">تحميلات ADNANLOAD</string>
+    <string name="bg_downloader_notification_channel_description">تقدم تنزيل الملفات في الخلفية</string>
+</resources>

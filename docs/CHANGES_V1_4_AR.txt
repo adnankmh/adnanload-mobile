@@ -1,0 +1,14 @@
+ADNANLOAD Mobile V1.4 — 10 feature workstreams
+
+[1] Native direct download: 5 retries, segmented range probe, queue and schedule kept; no expired-token refresh promised.
+[2] HTML5 media source discovery via explicit DOM inspection on browser page; no DRM/cross-origin bypass.
+[3] Selected playlist indices expansion to individually cancelable/retriable entries, max 100. Whole playlists remain grouped.
+[4] Contextual floating media-download button in in-app browser when candidates are found.
+[5] AMOLED and Glass Dark themes added to Neon, Gold, Dark, Light, Midnight and Emerald.
+[6] Read-only size-then-SHA256 duplicate detection, safe cleanup of app-owned temporary files older than 24 hours only.
+[7] Optional secure-storage salted PIN app entry lock; clear browser cookies/cache. PIN does not encrypt files.
+[8] Paused notifications added, Arabic strings for native pause/resume/cancel controls; download persistence relies on plugin and OS.
+[9] Explicit JSON backup/export and safe import; imported jobs inert and local paths cleared. JSON backups are plaintext.
+[10] Opt-in weekly stable-channel media extractor update check; manual update preserved. Third-party update chain not independently audited.
+
+Validation: static package validation passed; Flutter analyze/test/APK build not available in this runtime.

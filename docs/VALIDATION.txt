@@ -1,0 +1,24 @@
+ADNANLOAD MOBILE v1.0.0 — VALIDATION REPORT
+Date: 2026-10-25
+
+Executed in the project authoring environment:
+[PASS] Required Flutter source files are present.
+[PASS] Arabic/English UI translation keys match: 99/99.
+[PASS] UTF-8 files and .bat without BOM.
+[PASS] AndroidManifest XML syntax.
+[PASS] Android launcher icon assets at all 5 densities.
+[PASS] Android configure_android.py smoke test on simulated Flutter scaffold:
+       minSdk patch, icon copy, manifest copy, default sample test cleanup.
+[PASS] Python bootstrap script syntax validation.
+[PASS] No private-key / Windows license-generator artifacts in mobile source.
+
+NOT RUN — must be completed on an Android development environment:
+[NOT RUN] flutter pub get
+[NOT RUN] flutter analyze
+[NOT RUN] flutter test
+[NOT RUN] flutter build apk --release
+[NOT RUN] Real-device integration tests (browser share, MP3/video, large downloads).
+
+Flutter and Android SDK are not installed in this authoring container.
+This package is a Flutter source project, not a certified APK or verified release binary.
+The CI workflow is included but has not yet been run against a connected GitHub repository.

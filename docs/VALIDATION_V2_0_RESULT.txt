@@ -1,0 +1,46 @@
+STATIC SOURCE CHECKS PASSED
+Bilingual key parity: 278 keys
+Android icon resolutions: 5
+Android Manifest: XML well-formed
+Playlist/source declarations verified (not executed on Android)
+Flutter SDK available: not checked by this script
+V1.5 source feature declarations verified (no device runtime test)
+V1.6 Android scheduler and ephemeral browsing source contracts verified
+STATIC SOURCE CHECKS PASSED
+Bilingual key parity: 278 keys
+Android icon resolutions: 5
+Android Manifest: XML well-formed
+Playlist/source declarations verified (not executed on Android)
+Flutter SDK available: not checked by this script
+V1.5 source feature declarations verified (no device runtime test)
+V1.6 Android scheduler and ephemeral browsing source contracts verified
+PASS release metadata
+PASS atomic remove after cancellation
+PASS guard against canceled media events
+PASS restore native jobs on startup
+PASS serialize history writes
+PASS keep active history
+PASS safe local error keys
+PASS filename search
+PASS large display navigation
+PASS smart playback retained
+PASS RTL retained
+PASS mobile medium only
+PASS new focused Dart tests
+PASS build jobs
+V1.7 static contract checks: 14/14 passed (Flutter tests not run)
+PASS new version
+PASS batch parser
+PASS batch UI
+PASS playlist explorer
+PASS converter
+PASS converter UI
+PASS storage quota
+PASS health center
+PASS stable media update
+PASS size report script
+PASS no iOS
+PASS native manifest valid
+V2.0 static checks complete — compilation/device execution NOT verified.
+
+Actual Flutter/Android tests: NOT RUN — toolchain unavailable.

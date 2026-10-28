@@ -1,0 +1,20 @@
+ADNANLOAD MOBILE v1.2.0 — Design integration QA
+
+Source validation executed: PASS
+- Bilingual translation key parity: 141 Arabic / 141 English
+- Duplicate translation keys: none
+- Android manifest: valid XML
+- Android launcher icon assets: present at 5 densities
+- Package sources, core Android services and playlist functionality: retained
+- Home uses download repository, no Timer.periodic simulation
+- Home download button delegates to the existing NewDownloadSheet
+- Existing downloads, browser, media and settings integration: retained
+- Source remains Android-only; no iOS project
+
+NOT executed in this environment:
+- flutter analyze
+- flutter test (includes neon_design_test.dart)
+- flutter build apk / Android emulator & physical device tests
+
+Flutter SDK and Android SDK were not available in this runtime.
+Therefore the ZIP is source code, not a verified Android APK.

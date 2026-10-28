@@ -1,0 +1,16 @@
+ADNANLOAD Mobile V1.3 — Validation record
+
+Executed locally:
+- Python tools/validate_source.py (file inventory / translations / manifest / icons): see actual results during release.
+- Python YAML/XML and UTF-8 checks.
+- SHA-256 calculated on final source ZIP.
+
+Not executed here because Flutter and Android SDK are unavailable:
+- flutter pub get
+- flutter analyze
+- flutter test
+- flutter build apk --release
+- Android emulator/physical-device integration tests
+- Native browser/media/playlist and storage tests
+
+Status: SOURCE PACKAGE. No verified installable APK supplied and no claim of end-to-end defect-free operation.

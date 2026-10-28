@@ -1,0 +1,25 @@
+ADNANLOAD Mobile 1.5.0+6 — Validation Record
+
+Date: 2026-10-26
+Scope: Flutter/Android source (NOT an installed APK)
+
+PASS: python tools/validate_source.py
+PASS: Arabic/English localization key parity (239/239)
+PASS: AndroidManifest.xml XML parsing; explicit UIDT service and required permission
+PASS: Dart relative import path resolution (no unresolved imports detected)
+PASS: shell script syntax via bash -n
+PASS: best-effort Dart delimiter scan on all 24 Dart source files
+PASS: GitHub Actions YAML parses in local YAML parser
+PENDING: flutter pub get, flutter analyze, flutter test (Flutter SDK unavailable in current environment)
+PENDING: flutter build apk / appbundle and device integration tests (Flutter and Android SDK unavailable)
+PENDING: Android 10/13/14/15/16 hardware compatibility and resource/battery/notification behavior
+PENDING: production signing, privacy/security audit, third-party licensing and store approval
+
+Behavioral test source added: test/transfer_policy_test.dart
+  - Offline and Wi-Fi-only media queue policy
+  - Battery threshold while charging/not charging
+  - Bounded transient network retry policy
+  - Retry metadata serialization
+  - Download aggregate metrics
+
+Not claimed: no runtime tests on device, no distributable signed APK/AAB, no guarantee for all media sites, no DRM bypass.
