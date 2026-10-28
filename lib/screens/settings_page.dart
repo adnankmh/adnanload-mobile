@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
 import '../core/theme.dart';
 import '../services/download_repository.dart';
+import '../services/quick_capture.dart';
 import '../widgets/ultimate_tools_panel.dart';
 import 'package:flutter/services.dart';
 
@@ -66,6 +68,34 @@ class SettingsPage extends StatelessWidget {
         Padding(padding:const EdgeInsets.all(12),child:Text(t('directThreadsHint'),
           style:Theme.of(context).textTheme.bodySmall)),
       ]))),
+      const SizedBox(height:16),
+      if (Platform.isAndroid) ValueListenableBuilder<bool>(
+        valueListenable:QuickCapture.visible,
+        builder:(context,visible,_)=>Card(child:SwitchListTile(
+          secondary:const Icon(Icons.picture_in_picture_alt_rounded),
+          title:Text(t('quickBubble')),
+          subtitle:Text(t('quickBubbleHint')),
+          value:visible,
+          onChanged:(enabled) async {
+            try {
+              if (enabled) {
+                if (!await QuickCapture.hasPermission()) {
+                  await QuickCapture.requestPermission();
+                  if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content:Text(t('quickBubbleGrant'))));
+                  return;
+                }
+                await QuickCapture.enableBubble();
+              } else {
+                await QuickCapture.disableBubble();
+              }
+            } catch (_) {
+              if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content:Text(t('quickBubbleGrant'))));
+            }
+          },
+        )),
+      ),
       const SizedBox(height:16),
       Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text(t('security'),style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),
