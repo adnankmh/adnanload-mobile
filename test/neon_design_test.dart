@@ -41,7 +41,6 @@ void main() {
       )),
     ));
     expect(find.text('Active Downloads'), findsOneWidget);
-    expect(find.text('No downloads yet'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'https://example.com/video');
     await tester.tap(find.text('Download').first);
     await tester.pump();
@@ -51,6 +50,14 @@ void main() {
     await tester.tap(find.text('Download').first);
     await tester.pump();
     expect(mode, 'video');
+    // The real dashboard scrolls; its empty-state card can be outside the
+    // initial test viewport. Assert it after scrolling rather than pretending
+    // every ListView child must be visible before interaction.
+    await tester.scrollUntilVisible(
+      find.text('No downloads yet'), 120.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('No downloads yet'), findsOneWidget);
     repo.dispose();
   });
 }
