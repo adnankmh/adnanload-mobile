@@ -293,6 +293,10 @@ class DownloadRepository extends ChangeNotifier {
   void _handleDirectUpdate(bd.TaskUpdate update) {
     final item = entry(update.task.taskId);
     if (item == null || item.kind != 'direct') return;
+    if (update is bd.TaskStatusUpdate && update.status == bd.TaskStatus.complete) {
+      unawaited(_verifyNativeTaskDestination(item, update.task));
+      return;
+    }
     if (update is bd.TaskProgressUpdate) {
       if (update.progress >= 0 && update.progress <= 1) item.progress = update.progress;
       item.speed = update.hasNetworkSpeed ? update.networkSpeed : 0;
@@ -306,12 +310,6 @@ class DownloadRepository extends ChangeNotifier {
         bd.TaskStatus.canceled => 'canceled',
         _ => 'waiting',
       };
-      if (status == bd.TaskStatus.complete) {
-        item.scheduledExternally = false;
-        item.status = 'verifying';
-        item.progress = 1;
-        unawaited(_confirmDownloadedFile(item));
-      }
       if (status == bd.TaskStatus.paused) {
         item.scheduledExternally = false;
         item.nativeQueued = false;
@@ -328,10 +326,25 @@ class DownloadRepository extends ChangeNotifier {
     _persistSoon();
   }
 
-  /// Native completion events do not guarantee the file has a usable path.
-  /// Resolve the path from the actual task, then verify the file on disk.
+  Future<void> _verifyNativeTaskDestination(DownloadEntry item, bd.Task task) async {
+    // Mark complete only after resolving the actual path reported by the
+    // downloader and checking that the file is present and non-empty.
+    item.status = 'verifying';
+    notifyListeners();
+    try {
+      item.path = await task.filePath();
+    } catch (_) {
+      // Retain the original persisted path as a fallback for old downloads.
+    }
+    await _confirmDownloadedFile(item);
+    item.nativeQueued = false;
+    item.scheduledExternally = false;
+    unawaited(_pump());
+  }
+
   Future<void> _confirmDownloadedFile(DownloadEntry item) async {
     try {
+      if (item.path.isEmpty) throw const FileSystemException('Missing path');
       final file = File(item.path);
       if (!await file.exists() || await file.length() <= 0) {
         item.status = 'error';
@@ -342,6 +355,7 @@ class DownloadRepository extends ChangeNotifier {
       } else {
         item.status = 'complete';
         item.error = '';
+        item.progress = 1;
       }
     } catch (_) {
       item.status = 'error';
@@ -593,8 +607,9 @@ class DownloadRepository extends ChangeNotifier {
           : const {bd.TransferHint.largeFile},
       );
       try {
-        final docs = await getApplicationDocumentsDirectory();
-        item.path = '${docs.path}/ADNANLOAD/${item.name}';
+        // Resolve the canonical destination from the same native Task.
+        // Android and plugin versions may choose different internal roots.
+        item.path = await task.filePath();
         final queued = await bd.FileDownloader().enqueue(task);
         if (!queued) throw StateError('Unable to enqueue download');
         _event('Native download successfully queued');
