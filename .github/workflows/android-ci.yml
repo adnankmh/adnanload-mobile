@@ -102,8 +102,9 @@ jobs:
           test -s "$apk"
           unzip -tqq "$apk"
           aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
-          "$aapt" dump badging "$apk" | head -n 12
-          "$aapt" dump badging "$apk" | grep -q "package: name='com.adnanload.adnanload_mobile'"
+          "$aapt" dump badging "$apk" > build/ci-diagnostics/apk-badging.txt
+          head -n 12 build/ci-diagnostics/apk-badging.txt
+          grep -q "package: name='com.adnanload.adnanload_mobile'" build/ci-diagnostics/apk-badging.txt
 
       - name: Write checksums and release metadata
         shell: bash
