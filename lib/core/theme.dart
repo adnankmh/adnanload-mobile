@@ -4,6 +4,32 @@ import 'package:flutter/material.dart';
 class BrandThemes {
   static const names = ['dark', 'light', 'gold'];
 
+  /// TextTheme.apply(fontSizeFactor: ...) asserts if a style has no fontSize.
+  /// Flutter's default Material themes may contain such inherited styles.
+  /// Give each Material 3 slot a safe concrete base before scaling.
+  static TextTheme _scaledTextTheme(TextTheme base, double factor) {
+    TextStyle? scaled(TextStyle? style, double fallback) => style?.copyWith(
+      fontSize: (style.fontSize ?? fallback) * factor,
+    );
+    return base.copyWith(
+      displayLarge: scaled(base.displayLarge, 57),
+      displayMedium: scaled(base.displayMedium, 45),
+      displaySmall: scaled(base.displaySmall, 36),
+      headlineLarge: scaled(base.headlineLarge, 32),
+      headlineMedium: scaled(base.headlineMedium, 28),
+      headlineSmall: scaled(base.headlineSmall, 24),
+      titleLarge: scaled(base.titleLarge, 22),
+      titleMedium: scaled(base.titleMedium, 16),
+      titleSmall: scaled(base.titleSmall, 14),
+      bodyLarge: scaled(base.bodyLarge, 16),
+      bodyMedium: scaled(base.bodyMedium, 14),
+      bodySmall: scaled(base.bodySmall, 12),
+      labelLarge: scaled(base.labelLarge, 14),
+      labelMedium: scaled(base.labelMedium, 12),
+      labelSmall: scaled(base.labelSmall, 11),
+    );
+  }
+
   static ThemeData build(String theme, {double fontScale = 1.0}) {
     final dark = theme == 'dark';
     final gold = theme == 'gold';
@@ -21,7 +47,7 @@ class BrandThemes {
         surface: surface,
       ),
     );
-    final textTheme = base.textTheme.apply(fontSizeFactor: 1.05 * fontScale);
+    final textTheme = _scaledTextTheme(base.textTheme, 1.05 * fontScale);
     return base.copyWith(
       scaffoldBackgroundColor: background,
       textTheme: textTheme,
