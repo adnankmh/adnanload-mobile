@@ -33,6 +33,7 @@ class AndroidConfigurationTests(unittest.TestCase):
 android { compileSdk = flutter.compileSdkVersion
     defaultConfig { minSdk = flutter.minSdkVersion }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17 }
+    buildTypes { release { signingConfig = signingConfigs.getByName("debug") } }
 }
 ''',encoding='utf-8')
             (root/'android/build.gradle.kts').write_text('''allprojects {
@@ -52,6 +53,8 @@ android { compileSdk = flutter.compileSdkVersion
             self.assertEqual((root/'android/gradle.properties').read_text().count('android.suppressUnsupportedCompileSdk=37'),1)
             self.assertEqual(text.count('coreLibraryDesugaring('),1)
             self.assertEqual(text.count('isCoreLibraryDesugaringEnabled'),1)
+            self.assertEqual(text.count('proguardFiles('),1)
+            self.assertEqual((app/'proguard-rules.pro').read_text().count('-dontwarn java.beans.'),5)
             self.assertEqual(gradle.count('https://jitpack.io'),1)
             self.assertIn('version "2.1.0"',(root/'android/settings.gradle.kts').read_text())
             manifest=(app/'src/main/AndroidManifest.xml').read_text()

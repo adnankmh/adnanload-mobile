@@ -55,7 +55,27 @@ if app_gradle.exists():
         if 'android {' not in text:
             raise SystemExit('Cannot configure native archive packaging.')
         text=text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            keepDebugSymbols.add("**/lib*.zip.so")\n        }\n    }',1)
+    # Rhino uses optional JavaBeans APIs absent from Android. R8 must not
+    # treat these optional references as fatal during Release optimization.
+    if 'proguard-rules.pro' not in text:
+        if 'release {' not in text:
+            raise SystemExit('Cannot find Android release build type.')
+        text=text.replace('release {',
+            'release {\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")',1)
     app_gradle.write_text(text,encoding='utf-8')
+    rules_path=app_gradle.parent/'proguard-rules.pro'
+    rules=[
+        '-dontwarn java.beans.BeanDescriptor',
+        '-dontwarn java.beans.BeanInfo',
+        '-dontwarn java.beans.IntrospectionException',
+        '-dontwarn java.beans.Introspector',
+        '-dontwarn java.beans.PropertyDescriptor',
+    ]
+    existing=rules_path.read_text(encoding='utf-8') if rules_path.exists() else '# Optional Rhino JavaBeans support is unavailable on Android.\n'
+    for rule in rules:
+        if rule not in existing.splitlines():
+            existing+=rule+'\n'
+    rules_path.write_text(existing,encoding='utf-8')
 
 props=android/'gradle.properties'
 content=props.read_text(encoding='utf-8') if props.exists() else ''
