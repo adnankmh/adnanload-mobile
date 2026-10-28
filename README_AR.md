@@ -1,6 +1,6 @@
 > **لإنشاء Release APK عبر GitHub Actions:** راجع `GITHUB_ACTIONS_AR.md`، وشغّل `UPLOAD_TO_GITHUB.bat` من Windows بعد تثبيت Git وGitHub CLI.
 
-# ADNANLOAD MOBILE v2.1.2 — برنامج تنزيل شامل لهواتف Android / Flutter
+# ADNANLOAD MOBILE v2.1.3 — برنامج تنزيل شامل لهواتف Android / Flutter
 
 ## ما الجديد في النسخة المصححة؟
 
@@ -29,8 +29,8 @@
 
 ## بناء Release APK عبر GitHub بدون Flutter على Windows
 
-- **استخدم الدليل المحدث `GITHUB_ACTIONS_AR.md`**؛ يشرح الرفع الآلي للمستودع الخاص عبر `UPLOAD_TO_GITHUB.bat` أو GitHub Desktop، ثم تشغيل Actions وتنزيل ملف `ADNANLOAD-v2.1.2-RELEASE-APK`.
-- المسار الحالي يبني `app-release.apk` عامًّا؛ ويمكن طلب APKs أصغر من إعداد `split_apks`.
+- **استخدم الدليل المحدث `GITHUB_ACTIONS_AR.md`**؛ يشرح الرفع الآلي للمستودع الخاص عبر `UPLOAD_TO_GITHUB.bat` أو GitHub Desktop، ثم تشغيل Actions وتنزيل ملف `ADNANLOAD-v2.1.3-RELEASE-APK`.
+- المسار الافتراضي يبني `app-release.apk` لمعمارية **ARM64 فقط** لتفادي نفاد مساحة GitHub Runner. ويمكن إنتاج نسخ معماريات أخرى عبر خيار `split_apks` يدويًا، وقد تحتاج مساحة بناء أكبر.
 - من دون أسرار التوقيع الأربع، يكون ملف Release mode موقّعًا بمفتاح اختبار Debug، وليس مفتاح توزيع ثابت. تفاصيل التوقيع في الدليل.
 
 ## الميزات المحفوظة
