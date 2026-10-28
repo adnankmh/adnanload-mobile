@@ -84,13 +84,21 @@ class AdnanHome extends StatefulWidget {
 class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   int page = 0;
   StreamSubscription<List<SharedMediaFile>>? _shareSub;
+  bool _bubbleClipboardPending = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     QuickCapture.onLink = _fromExternalLink;
-    QuickCapture.onBubbleTapped = () => unawaited(_pasteAsDownload());
+    QuickCapture.onBubbleTapped = () {
+      // Android 10+ restricts background clipboard reads; only read after
+      // returning to a resumed foreground Activity.
+      _bubbleClipboardPending = true;
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _completeBubbleCapture();
+      }
+    };
     QuickCapture.initialize();
     QuickCapture.initialLink().then((value) {
       if (value != null && mounted) _fromExternalLink(value);
@@ -165,6 +173,14 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
     );
   }
 
+  void _completeBubbleCapture() {
+    if (!_bubbleClipboardPending) return;
+    _bubbleClipboardPending = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_pasteAsDownload());
+    });
+  }
+
   Future<void> _pasteAsDownload() async {
     final clip=(await Clipboard.getData(Clipboard.kTextPlain))?.text??'';
     if (!mounted) return;
@@ -214,6 +230,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     widget.repo.setAppVisible(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
+      _completeBubbleCapture();
       unawaited(widget.repo.onForeground());
     }
   }
