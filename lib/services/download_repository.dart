@@ -66,6 +66,7 @@ class DownloadRepository extends ChangeNotifier {
   bool wifiOnly = false;
   bool notifications = true;
   bool autoOpenSafeFiles = false;
+  bool autoStartSharedLinks = false;
   bool _appVisible = true;
   bool autoUpdateMediaEngine = false;
   bool _updateInProgress = false;
@@ -89,6 +90,7 @@ class DownloadRepository extends ChangeNotifier {
     automaticRetry = _prefs!.getBool('automaticRetry') ?? true;
     notifications = _prefs!.getBool('notifications') ?? true;
     autoOpenSafeFiles = _prefs!.getBool('autoOpenSafeFiles') ?? false;
+    autoStartSharedLinks = _prefs!.getBool('autoStartSharedLinks') ?? false;
     autoUpdateMediaEngine = _prefs!.getBool('autoUpdateMediaEngine') ?? false;
     fontScale = (_prefs!.getDouble('fontScale') ?? 1.0).clamp(.9, 1.35).toDouble();
     maxConcurrent = (_prefs!.getInt('maxConcurrent') ?? 3).clamp(1, 6).toInt();
@@ -157,7 +159,7 @@ class DownloadRepository extends ChangeNotifier {
   void _maybeOpenCompleted(DownloadEntry item) {
     if (!autoOpenSafeFiles || !_appVisible || item.isPlaylist || item.path.isEmpty) return;
     if (SmartLink.category(item.name) == 'application') return;
-    unawaited(OpenFilex.open(item.path));
+    unawaited(OpenFilex.open(item.path).then((_) {}).catchError((Object _) {}));
   }
 
   Future<void> onForeground() async {
@@ -822,7 +824,7 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   void updateSettings({String? newTheme, String? newLanguage, bool? newWifiOnly,
-    bool? newAutoOpenSafeFiles, bool? newNotifications, bool? newAutoUpdateMediaEngine, int? newMaxConcurrent, int? newParallelChunks, double? newFontScale,
+    bool? newAutoOpenSafeFiles, bool? newAutoStartSharedLinks, bool? newNotifications, bool? newAutoUpdateMediaEngine, int? newMaxConcurrent, int? newParallelChunks, double? newFontScale,
     int? newBatteryFloor, bool? newAutomaticRetry, int? newStorageLimitMb}) {
     if(newStorageLimitMb != null){
       storageLimitMb = newStorageLimitMb.clamp(0,102400).toInt();
@@ -832,6 +834,7 @@ class DownloadRepository extends ChangeNotifier {
     if (newWifiOnly != null) wifiOnly = newWifiOnly;
     if (newNotifications != null) notifications = newNotifications;
     if (newAutoOpenSafeFiles != null) autoOpenSafeFiles = newAutoOpenSafeFiles;
+    if (newAutoStartSharedLinks != null) autoStartSharedLinks = newAutoStartSharedLinks;
     if (newAutomaticRetry != null) automaticRetry = newAutomaticRetry;
     if (newBatteryFloor != null && const {0,15,25,40}.contains(newBatteryFloor)) batteryFloor = newBatteryFloor;
     if (newAutoUpdateMediaEngine != null) autoUpdateMediaEngine = newAutoUpdateMediaEngine;
@@ -843,6 +846,7 @@ class DownloadRepository extends ChangeNotifier {
     _prefs?.setBool('wifiOnly',wifiOnly);
     _prefs?.setBool('notifications',notifications);
     _prefs?.setBool('autoOpenSafeFiles',autoOpenSafeFiles);
+    _prefs?.setBool('autoStartSharedLinks',autoStartSharedLinks);
     _prefs?.setBool('automaticRetry',automaticRetry);
     _prefs?.setInt('batteryFloor',batteryFloor);
     _prefs?.setBool('autoUpdateMediaEngine',autoUpdateMediaEngine);
