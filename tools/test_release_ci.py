@@ -14,7 +14,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def setUpClass(cls):
         cls.workflow = (ROOT / ".github/workflows/android-ci.yml").read_text(encoding="utf-8")
         cls.pubspec = (ROOT / "pubspec.yaml").read_text(encoding="utf-8")
-        match = re.search(r"^version:\\s*(\\d+\\.\\d+\\.\\d+)\\+(\\d+)\\s*$", cls.pubspec, re.M)
+        match = re.search(r"^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$", cls.pubspec, re.M)
         if not match:
             raise AssertionError("Invalid pubspec version")
         cls.version = match.group(1)
