@@ -87,11 +87,22 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/ci-diagnostics
-          flutter build apk --release --verbose 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
+          flutter build apk --release --no-pub --verbose 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
 
       - name: Build smaller split Release APKs (optional)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.split_apks }}
         run: flutter build apk --release --split-per-abi
+
+      - name: Validate generated APK archive and Android package
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$apk"
+          unzip -tqq "$apk"
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          "$aapt" dump badging "$apk" | head -n 12
+          "$aapt" dump badging "$apk" | grep -q "package: name='com.adnanload.adnanload_mobile'"
 
       - name: Write checksums and release metadata
         shell: bash
@@ -106,7 +117,7 @@ jobs:
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ADNANLOAD-v2.1-RELEASE-APK
+          name: ADNANLOAD-v2.1.1-RELEASE-APK
           path: |
             build/app/outputs/flutter-apk/*.apk
             build/release-checksums/*.txt

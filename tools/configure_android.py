@@ -55,6 +55,12 @@ if app_gradle.exists():
         if 'android {' not in text:
             raise SystemExit('Cannot configure native archive packaging.')
         text=text.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            keepDebugSymbols.add("**/lib*.zip.so")\n        }\n    }',1)
+    # The app is distributed to testers as a fully functional APK. Native media
+    # and extractor dependencies use reflection/service loaders. Avoid expensive
+    # and potentially destructive R8 shrinking until compatibility is validated.
+    # Flutter's Android plugin may enable shrinking by default in release mode.
+    if 'isMinifyEnabled = false' not in text:
+        text=text.replace('release {', 'release {\n            isMinifyEnabled = false\n            isShrinkResources = false', 1)
     # Rhino uses optional JavaBeans APIs absent from Android. R8 must not
     # treat these optional references as fatal during Release optimization.
     if 'proguard-rules.pro' not in text:
@@ -79,8 +85,18 @@ if app_gradle.exists():
 
 props=android/'gradle.properties'
 content=props.read_text(encoding='utf-8') if props.exists() else ''
-lines=[line for line in content.splitlines() if not line.startswith('android.suppressUnsupportedCompileSdk=')]
-lines.append('android.suppressUnsupportedCompileSdk=37')
+# Constrain memory on shared GitHub runners (7 GB-class machines).
+# The default Flutter scaffold may allocate up to 8 GB to a single JVM,
+# while Gradle and Kotlin can each launch separate Java processes.
+settings = {
+    'android.suppressUnsupportedCompileSdk': '37',
+    'org.gradle.jvmargs': '-Xmx3072m -XX:MaxMetaspaceSize=768m -XX:+UseParallelGC',
+    'kotlin.daemon.jvmargs': '-Xmx1536m -XX:MaxMetaspaceSize=512m',
+    'org.gradle.workers.max': '2',
+    'org.gradle.caching': 'true',
+}
+lines=[line for line in content.splitlines() if line.strip().split('=',1)[0] not in settings]
+lines.extend(f'{key}={value}' for key,value in settings.items())
 props.write_text('\n'.join(lines)+'\n',encoding='utf-8')
 
 print('Manifest configured:',manifest.relative_to(root))
