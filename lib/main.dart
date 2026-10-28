@@ -19,6 +19,7 @@ import 'widgets/new_download_sheet.dart';
 import 'widgets/privacy_gate.dart';
 import 'widgets/batch_download_sheet.dart';
 import 'core/batch_links.dart';
+import 'core/smart_link.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,8 +104,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
       if(incoming.length > 1){_showBatch(incoming.join('\n'));}
       else {
         final raw=incoming.single;
-        _showDownload(raw,PlaylistRules.looksLikePlaylist(raw)?'playlist'
-          :PlaylistRules.looksLikeMediaSite(raw)?'video':'direct');
+        _showDownload(raw, SmartLink.kind(raw));
       }
     });
   }
@@ -129,6 +129,21 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
       builder: (_) => NewDownloadSheet(repo: widget.repo, strings: s,
         initialUrl: url, initialKind: kind),
     );
+  }
+
+  Future<void> _pasteAsDownload() async {
+    final clip=(await Clipboard.getData(Clipboard.kTextPlain))?.text??'';
+    if (!mounted) return;
+    final urls=BatchLinks.parse(clip);
+    if (urls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.repo.language=='ar'
+          ?'الحافظة لا تحتوي على رابط صالح':'No valid download link on clipboard')));
+    } else if (urls.length>1) {
+      _showBatch(urls.join('\n'));
+    } else {
+      _showDownload(urls.single, SmartLink.kind(urls.single));
+    }
   }
 
   void _openSettings() {
@@ -208,6 +223,8 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
               fontWeight: FontWeight.w900, color: colors.onSurface))),
         ]),
         actions: [
+          IconButton(tooltip:s.t('paste'),onPressed:_pasteAsDownload,
+            icon:const Icon(Icons.content_paste_go_rounded)),
           IconButton(tooltip:s.t('batchTitle'),onPressed:_showBatch,
             icon:const Icon(Icons.playlist_add_rounded)),
           _HeaderAction(icon: Icons.help_outline_rounded, label: s.t('quickHelp'),
