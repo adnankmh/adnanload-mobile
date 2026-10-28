@@ -61,6 +61,12 @@ if app_gradle.exists():
     # Flutter's Android plugin may enable shrinking by default in release mode.
     if 'isMinifyEnabled = false' not in text:
         text=text.replace('release {', 'release {\n            isMinifyEnabled = false\n            isShrinkResources = false', 1)
+    # Modern AGP rejects android:extractNativeLibs on the manifest. Configure
+    # the equivalent packaging behavior through the Gradle Kotlin DSL instead.
+    if 'useLegacyPackaging = true' not in text:
+        if 'jniLibs {' not in text:
+            raise SystemExit('Cannot find jniLibs packaging block.')
+        text=text.replace('jniLibs {', 'jniLibs {\n            useLegacyPackaging = true', 1)
     # Rhino uses optional JavaBeans APIs absent from Android. R8 must not
     # treat these optional references as fatal during Release optimization.
     if 'proguard-rules.pro' not in text:

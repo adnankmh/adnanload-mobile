@@ -1,7 +1,7 @@
 name: adnanload_mobile
 description: ADNANLOAD Mobile for Android — direct files, media, audio and playlists.
 publish_to: none
-version: 2.1.1+11
+version: 2.1.2+12
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
