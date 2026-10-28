@@ -129,7 +129,7 @@ class SettingsPage extends StatelessWidget {
       Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
         Icon(Icons.workspace_premium_rounded,size:42,color:Theme.of(context).colorScheme.primary),
         const SizedBox(height:8),const Text('ADNANLOAD MOBILE',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
-        Text('${t('version')} 2.2.0 · Flutter / Android'),
+        Text('${t('version')} 2.2.2 · Flutter / Android'),
         const SizedBox(height:12),Text(t('author'),textAlign:TextAlign.center),
       ]))),
     ]);
