@@ -29,7 +29,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertNotIn("sudo rm -rf -- /usr/local/lib/android/sdk/ndk", self.workflow)
 
     def test_default_build_limits_native_cpu_architecture(self):
-        self.assertIn("--target-platform android-arm64", self.workflow)
+        self.assertIn("--target-platform android-arm64 --split-per-abi", self.workflow)
         self.assertIn("flutter build apk --release --no-pub --split-per-abi", self.workflow)
 
     def test_apk_validation_supports_both_build_modes(self):
@@ -37,6 +37,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("unzip -tqq \"$apk\"", self.workflow)
         self.assertIn("com.adnanload.adnanload_mobile", self.workflow)
         self.assertIn("apk-contents.txt", self.workflow)
+        self.assertIn("tools/report_apk_size.py", self.workflow)
+        self.assertIn("--limit-mb 50", self.workflow)
 
 
 if __name__ == "__main__":
