@@ -63,7 +63,7 @@ class DownloadRepository extends ChangeNotifier {
   bool notifications = true;
   bool autoUpdateMediaEngine = false;
   bool _updateInProgress = false;
-  String theme = 'neon';
+  String theme = 'dark';
   String language = 'ar';
 
   DownloadEntry? entry(String id) {
@@ -74,7 +74,8 @@ class DownloadRepository extends ChangeNotifier {
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     crashCount = await CrashJournal.crashCount();
-    theme = _prefs!.getString('theme') ?? 'neon';
+    theme = _prefs!.getString('theme') ?? 'dark';
+    if (!const {'dark', 'light', 'gold'}.contains(theme)) theme = 'dark';
     language = _prefs!.getString('language') ?? 'ar';
     wifiOnly = _prefs!.getBool('wifiOnly') ?? false;
     batteryFloor = _prefs!.getInt('batteryFloor') ?? 0;
@@ -307,11 +308,9 @@ class DownloadRepository extends ChangeNotifier {
       };
       if (status == bd.TaskStatus.complete) {
         item.scheduledExternally = false;
+        item.status = 'verifying';
         item.progress = 1;
-        if (item.expectedSha256.isNotEmpty) {
-          item.status = 'verifying';
-          unawaited(_verifyCompletedFile(item));
-        }
+        unawaited(_confirmDownloadedFile(item));
       }
       if (status == bd.TaskStatus.paused) {
         item.scheduledExternally = false;
@@ -324,6 +323,29 @@ class DownloadRepository extends ChangeNotifier {
         unawaited(_pump());
       }
       if (update.exception != null) item.error = 'transferProblem';
+    }
+    notifyListeners();
+    _persistSoon();
+  }
+
+  /// Native completion events do not guarantee the file has a usable path.
+  /// Resolve the path from the actual task, then verify the file on disk.
+  Future<void> _confirmDownloadedFile(DownloadEntry item) async {
+    try {
+      final file = File(item.path);
+      if (!await file.exists() || await file.length() <= 0) {
+        item.status = 'error';
+        item.error = 'downloadedFileMissing';
+      } else if (item.expectedSha256.isNotEmpty) {
+        await _verifyCompletedFile(item);
+        return;
+      } else {
+        item.status = 'complete';
+        item.error = '';
+      }
+    } catch (_) {
+      item.status = 'error';
+      item.error = 'downloadedFileMissing';
     }
     notifyListeners();
     _persistSoon();
@@ -480,7 +502,7 @@ class DownloadRepository extends ChangeNotifier {
     if (prefs is Map) {
       final newTheme = prefs['theme']?.toString();
       final newLang = prefs['language']?.toString();
-      updateSettings(newTheme: const {'neon','gold','amoled','glass','midnight','emerald','dark','light'}.contains(newTheme) ? newTheme : null,
+      updateSettings(newTheme: const {'dark','light','gold'}.contains(newTheme) ? newTheme : null,
         newLanguage: const {'ar','en'}.contains(newLang) ? newLang : null,
         newWifiOnly: prefs['wifiOnly'] is bool ? prefs['wifiOnly'] as bool : null);
     }
@@ -631,9 +653,15 @@ class DownloadRepository extends ChangeNotifier {
       ));
       if (item.status == 'canceled') return;
       if (result.status == OperationStatus.success) {
-        item.status = 'complete'; item.progress = 1;
-        // A playlist contains multiple files: store the folder for safe opening.
+        // Only mark success once the output exists on disk.
         item.path = item.isPlaylist ? '${output.path}/$basename' : (result.outputPath ?? '');
+        final produced = item.isPlaylist
+            ? await Directory(item.path).exists()
+            : item.path.isNotEmpty && await File(item.path).exists()
+              && await File(item.path).length() > 0;
+        item.status = produced ? 'complete' : 'error';
+        item.error = produced ? '' : 'downloadedFileMissing';
+        if (produced) item.progress = 1;
       } else {
         final failure = result.errorMessage ?? 'Media download failed';
         if (!_retryMediaIfTransient(item, failure)) {
@@ -728,7 +756,7 @@ class DownloadRepository extends ChangeNotifier {
     if(newStorageLimitMb != null){
       storageLimitMb = newStorageLimitMb.clamp(0,102400).toInt();
     }
-    if (newTheme != null) theme = newTheme;
+    if (newTheme != null && const {'dark','light','gold'}.contains(newTheme)) theme = newTheme;
     if (newLanguage != null) language = newLanguage;
     if (newWifiOnly != null) wifiOnly = newWifiOnly;
     if (newNotifications != null) notifications = newNotifications;
