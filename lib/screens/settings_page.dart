@@ -46,6 +46,12 @@ class SettingsPage extends StatelessWidget {
               child:Text(v==0?t('noLimit'):'$v%'))).toList(),
             onChanged:(v)=>repo.updateSettings(newBatteryFloor:v))),
         SwitchListTile(
+          secondary:const Icon(Icons.quickreply_rounded),
+          title:Text(t('autoStartSharedLinks')),
+          subtitle:Text(t('autoStartSharedLinksHint')),
+          value:repo.autoStartSharedLinks,
+          onChanged:(v)=>repo.updateSettings(newAutoStartSharedLinks:v)),
+        SwitchListTile(
           secondary:const Icon(Icons.file_open_rounded),
           title:Text(t('autoOpenSafeFiles')),
           subtitle:Text(t('autoOpenSafeFilesHint')),
