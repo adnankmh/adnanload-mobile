@@ -1,11 +1,12 @@
 """V1.7 source contract smoke checks. Does NOT compile Dart or install Android."""
 from pathlib import Path
 import subprocess, sys
+from version_policy import supported_version
 root=Path(__file__).resolve().parents[1]
 subprocess.run([sys.executable,str(root/'tools/validate_source.py')],check=True)
 def src(name): return (root/name).read_text(encoding='utf-8')
 checks={
-  'release metadata': 'version: 2.1.0+10' in src('pubspec.yaml'),
+  'release metadata': supported_version(src('pubspec.yaml')),
   'atomic remove after cancellation': 'Future<void> remove(DownloadEntry item) async' in src('lib/services/download_repository.dart') and 'await cancel(item);' in src('lib/services/download_repository.dart'),
   'guard against canceled media events': "item.status == 'canceled'" in src('lib/services/download_repository.dart'),
   'restore native jobs on startup': 'await _reconcileInterruptedDirect();' in src('lib/services/download_repository.dart'),

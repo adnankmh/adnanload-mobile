@@ -1,12 +1,13 @@
 """V2.0 release source contract, not a Dart compilation/device test."""
 from pathlib import Path
 import re,subprocess,sys,xml.etree.ElementTree as ET
+from version_policy import supported_version
 root=Path(__file__).resolve().parents[1]
 subprocess.run([sys.executable,str(root/'tools/validate_source.py')],check=True)
 # Keep v1.7 structural protections until replaced by device tests.
 subprocess.run([sys.executable,str(root/'tools/validate_release_v17.py')],check=True)
 checks={
-  'new version': 'version: 2.1.0+10' in (root/'pubspec.yaml').read_text(),
+  'new version': supported_version((root/'pubspec.yaml').read_text()),
   'batch parser': (root/'lib/core/batch_links.dart').exists(),
   'batch UI': (root/'lib/widgets/batch_download_sheet.dart').exists(),
   'playlist explorer': (root/'lib/widgets/playlist_explorer_sheet.dart').exists(),
