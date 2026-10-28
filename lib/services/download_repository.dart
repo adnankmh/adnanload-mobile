@@ -12,6 +12,7 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/url_guard.dart';
+import '../core/media_failure.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../core/transfer_policy.dart';
@@ -31,6 +32,7 @@ class DownloadRepository extends ChangeNotifier {
   List<DownloadEntry> get items => List.unmodifiable(_items);
   StreamSubscription<bd.TaskUpdate>? _directSub;
   StreamSubscription<DownloadProgress>? _mediaSub;
+  StreamSubscription<DownloadError>? _mediaErrors;
   Timer? _persistTimer;
   Future<void> _persistTail = Future<void>.value();
   Timer? _queueTimer;
@@ -382,6 +384,15 @@ class DownloadRepository extends ChangeNotifier {
         notifyListeners();
         _persistSoon();
       });
+      _mediaErrors ??= YoutubeDLFlutter.instance.onError.listen((failure) {
+        final item = entry(failure.processId);
+        if (item != null && item.status != 'canceled') {
+          item.error = MediaFailure.classify(failure.error.toString());
+          _event('Media engine reported: ${item.error}');
+          notifyListeners();
+          _persistSoon();
+        }
+      });
       _initializedMedia = true;
       if(autoUpdateMediaEngine) unawaited(_checkMediaUpdateIfDue());
       return true;
@@ -669,23 +680,50 @@ class DownloadRepository extends ChangeNotifier {
       if (item.status == 'canceled') return;
       if (result.status == OperationStatus.success) {
         // Only mark success once the output exists on disk.
-        item.path = item.isPlaylist ? '${output.path}/$basename' : (result.outputPath ?? '');
-        final produced = item.isPlaylist
-            ? await Directory(item.path).exists()
-            : item.path.isNotEmpty && await File(item.path).exists()
-              && await File(item.path).length() > 0;
+        // The engine can report success with an empty outputPath or a new
+        // extension after FFmpeg conversion. Inspect the files it produced.
+        final playlistDir = Directory('${output.path}/$basename');
+        if (item.isPlaylist) {
+          item.path = playlistDir.path;
+        } else {
+          final returned = result.outputPath ?? '';
+          if (returned.isNotEmpty && await File(returned).exists()) {
+            item.path = returned;
+          } else {
+            final media = await output.list(followLinks: false)
+              .where((e) => e is File && !e.path.endsWith('.part'))
+              .cast<File>().toList();
+            final candidates = <File>[];
+            for (final file in media) {
+              if (file.path.split(Platform.pathSeparator).last.startsWith('$basename.') &&
+                  await file.length() > 0) candidates.add(file);
+            }
+            if (candidates.length == 1) item.path = candidates.single.path;
+          }
+        }
+        var produced = false;
+        if (item.isPlaylist && await playlistDir.exists()) {
+          await for (final child in playlistDir.list(recursive: true, followLinks: false)) {
+            if (child is File && !child.path.endsWith('.part') && await child.length() > 0) {
+              produced = true;
+              break;
+            }
+          }
+        } else if (!item.isPlaylist && item.path.isNotEmpty) {
+          produced = await File(item.path).exists() && await File(item.path).length() > 0;
+        }
         item.status = produced ? 'complete' : 'error';
         item.error = produced ? '' : 'downloadedFileMissing';
         if (produced) item.progress = 1;
       } else {
         final failure = result.errorMessage ?? 'Media download failed';
         if (!_retryMediaIfTransient(item, failure)) {
-          item.status = 'error'; item.error = 'mediaFailedTryAgain'; _event('Media download failed');
+          item.status = 'error'; item.error = MediaFailure.classify(failure); _event('Media download failed: ${item.error}');
         }
       }
     } catch (e) {
       if (item.status != 'canceled' && !_retryMediaIfTransient(item, e.toString())) {
-        item.status = 'error'; item.error = 'mediaRequestFailed'; _event('Media download exception');
+        item.status = 'error'; item.error = MediaFailure.classify(e.toString()); _event('Media download exception: ${item.error}');
       }
     } finally { notifyListeners(); _persistSoon(); unawaited(_pump()); }
   }
@@ -959,6 +997,7 @@ class DownloadRepository extends ChangeNotifier {
     _queueTimer?.cancel();
     unawaited(_persistNow());
     _directSub?.cancel(); _mediaSub?.cancel();
+    _mediaErrors?.cancel();
     _connectivitySub?.cancel(); _batterySub?.cancel();
     super.dispose();
   }
