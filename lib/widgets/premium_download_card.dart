@@ -5,6 +5,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import '../core/app_strings.dart';
 import '../models/download_entry.dart';
+import '../core/smart_link.dart';
 import '../services/download_repository.dart';
 
 /// Live transfer card. No simulated progress, sizes or download speeds.
@@ -56,6 +57,9 @@ class PremiumDownloadCard extends StatelessWidget {
           if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${strings.t('exported')}: $output')));
           break;
+        case 'folder':
+          await _showFolderFiles(context);
+          break;
         case 'share':
           if (item.path.isNotEmpty && await File(item.path).exists()) {
             await SharePlus.instance.share(ShareParams(files:[XFile(item.path)]));
@@ -98,6 +102,28 @@ class PremiumDownloadCard extends StatelessWidget {
           SnackBar(content: Text(error.toString())));
       }
     }
+  }
+
+  Future<void> _showFolderFiles(BuildContext context) async {
+    final directory = item.isPlaylist ? Directory(item.path) : File(item.path).parent;
+    final files = <File>[];
+    if (await directory.exists()) {
+      await for (final entry in directory.list(followLinks: false)) {
+        if (entry is File && await entry.length()>0) files.add(entry);
+        if (files.length >= 200) break;
+      }
+    }
+    if (!context.mounted) return;
+    await showModalBottomSheet<void>(context:context,useSafeArea:true,
+      builder:(ctx)=>ListView(shrinkWrap:true,children:[
+        ListTile(title:Text(strings.t('savedFolder')),
+          subtitle:SelectableText(directory.path,textDirection:TextDirection.ltr)),
+        for (final file in files) ListTile(
+          leading:Icon(SmartLink.category(file.path)=='video'
+            ?Icons.video_file_rounded:Icons.insert_drive_file_outlined),
+          title:Text(file.uri.pathSegments.last),
+          onTap:()=>OpenFilex.open(file.path)),
+      ]));
   }
 
   Future<void> _showPlaylistFiles(BuildContext context) async {
@@ -181,6 +207,7 @@ class PremiumDownloadCard extends StatelessWidget {
                 tooltip: t('details'), onSelected: (v) => _act(context, v),
                 itemBuilder: (_) => [
                   if (isComplete) PopupMenuItem(value: 'open', child: Text(t('open'))),
+                  if (isComplete) PopupMenuItem(value: 'folder', child: Text(t('openFolder'))),
                   if (isComplete && !item.isPlaylist) ...[
                     PopupMenuItem(value:'share',child:Text(t('shareFile'))),
                     PopupMenuItem(value:'rename',child:Text(t('renameFile'))),
@@ -250,8 +277,10 @@ class PremiumDownloadCard extends StatelessWidget {
                 style: TextStyle(color: dim, fontSize: 11)),
               const SizedBox(height: 6),
               Wrap(spacing: 8, runSpacing: 4, children: [
-                ActionChip(avatar: const Icon(Icons.folder_open_rounded, size: 18),
+                ActionChip(avatar: const Icon(Icons.file_open_rounded, size: 18),
                   label: Text(t('open')), onPressed: () => _act(context, 'open')),
+                ActionChip(avatar: const Icon(Icons.folder_open_rounded,size:18),
+                  label: Text(t('openFolder')), onPressed:()=>_act(context,'folder')),
                 if (!item.isPlaylist) ActionChip(
                   avatar: const Icon(Icons.save_alt_rounded, size: 18),
                   label: Text(t('exportDownloads')),
