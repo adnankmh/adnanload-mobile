@@ -8,6 +8,7 @@ import 'core/app_strings.dart';
 import 'core/theme.dart';
 import 'core/playlist_rules.dart';
 import 'services/download_repository.dart';
+import 'services/quick_capture.dart';
 import 'services/android_schedule_service.dart';
 import 'services/crash_journal.dart';
 import 'screens/browser_page.dart';
@@ -20,6 +21,7 @@ import 'widgets/privacy_gate.dart';
 import 'widgets/batch_download_sheet.dart';
 import 'core/batch_links.dart';
 import 'core/smart_link.dart';
+import 'core/url_guard.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,12 +89,26 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    QuickCapture.onLink = _fromExternalLink;
+    QuickCapture.onBubbleTapped = () => unawaited(_pasteAsDownload());
+    QuickCapture.initialize();
+    QuickCapture.initialLink().then((value) {
+      if (value != null && mounted) _fromExternalLink(value);
+    }).catchError((Object _) {});
     _shareSub = ReceiveSharingIntent.instance.getMediaStream().listen(_receiveFiles,
       onError: (Object _) {});
     ReceiveSharingIntent.instance.getInitialMedia().then((items) {
       _receiveFiles(items);
       ReceiveSharingIntent.instance.reset();
     }).catchError((Object _) {});
+  }
+
+  void _fromExternalLink(String raw) {
+    if (!mounted) return;
+    if (UrlGuard.validate(raw) == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showDownload(raw, SmartLink.kind(raw));
+    });
   }
 
   void _receiveFiles(List<SharedMediaFile> items) {
@@ -187,6 +203,8 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _shareSub?.cancel();
+    QuickCapture.onLink = null;
+    QuickCapture.onBubbleTapped = null;
     super.dispose();
   }
 
@@ -235,6 +253,10 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
           const SizedBox(width: 14),
         ],
       ),
+      floatingActionButton: page == 0 ? FloatingActionButton.small(
+        heroTag:'quickPaste', tooltip:s.t('paste'),
+        onPressed:_pasteAsDownload,
+        child:const Icon(Icons.content_paste_go_rounded)) : null,
       body: largeScreen ? Row(children: [
         NavigationRail(
           selectedIndex: page,
