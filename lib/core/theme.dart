@@ -3,6 +3,31 @@ import 'package:flutter/material.dart';
 class BrandThemes {
   static const names = ['neon', 'gold', 'amoled', 'glass', 'midnight', 'emerald', 'dark', 'light'];
 
+  /// Scale only concrete font sizes; Flutter may supply null fontSize styles.
+  static TextTheme _scaledTextTheme(Brightness brightness, double factor) {
+    final base = ThemeData(brightness: brightness).textTheme;
+    TextStyle? scaled(TextStyle? style) => style?.copyWith(
+      fontSize: (style.fontSize ?? 14.0) * factor,
+    );
+    return base.copyWith(
+      displayLarge: scaled(base.displayLarge),
+      displayMedium: scaled(base.displayMedium),
+      displaySmall: scaled(base.displaySmall),
+      headlineLarge: scaled(base.headlineLarge),
+      headlineMedium: scaled(base.headlineMedium),
+      headlineSmall: scaled(base.headlineSmall),
+      titleLarge: scaled(base.titleLarge),
+      titleMedium: scaled(base.titleMedium),
+      titleSmall: scaled(base.titleSmall),
+      bodyLarge: scaled(base.bodyLarge),
+      bodyMedium: scaled(base.bodyMedium),
+      bodySmall: scaled(base.bodySmall),
+      labelLarge: scaled(base.labelLarge),
+      labelMedium: scaled(base.labelMedium),
+      labelSmall: scaled(base.labelSmall),
+    );
+  }
+
   static ThemeData build(String theme, {double fontScale = 1.0}) {
     final light = theme == 'light';
     final gold = theme == 'gold';
@@ -50,7 +75,7 @@ class BrandThemes {
       ),
       navigationBarTheme: NavigationBarThemeData(backgroundColor: neon ? const Color(0xFF101624) : bg,
         indicatorColor: seed.withValues(alpha: .20), height: 70),
-      textTheme: ThemeData(brightness: light ? Brightness.light : Brightness.dark).textTheme.apply(fontSizeFactor: 1.04 * fontScale),
+      textTheme: _scaledTextTheme(light ? Brightness.light : Brightness.dark, 1.04 * fontScale),
     );
   }
 }

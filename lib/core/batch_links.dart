@@ -12,7 +12,9 @@ class BatchLinks {
       final uri = UrlGuard.validate(cleaned);
       if (uri == null) continue;
       // Fragments do not affect resource retrieval; preserve query strings.
-      final canonical = uri.replace(fragment: '').toString();
+      final raw = uri.toString();
+      final fragmentIndex = raw.indexOf('#');
+      final canonical = fragmentIndex < 0 ? raw : raw.substring(0, fragmentIndex);
       if (seen.add(canonical)) {
         result.add(canonical);
         if (result.length >= maxLinks) break;
