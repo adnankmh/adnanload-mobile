@@ -1,7 +1,7 @@
 /// Arabic and English are deliberately stored under matching keys.
 class AppStrings {
   static const Map<String, String> ar = {
-    'nativeMissing':'اختفت مهمة التحميل من النظام. أعد المحاولة يدويًا.', 'mediaInterrupted':'توقفت مهمة الوسائط عند إغلاق التطبيق. أعد المحاولة لاستئناف العمل.', 'transferProblem':'حدث خطأ في النقل. أعد المحاولة أو استبدل الرابط.', 'nativeQueueFailed':'تعذرت إضافة الملف إلى نظام التنزيل.', 'mediaInitFailed':'تعذر تهيئة محرك الوسائط.', 'mediaFailedTryAgain':'فشل تنزيل الوسائط. حاول مجددًا.', 'mediaRequestFailed':'فشل طلب الوسائط. أعد المحاولة.', 'checksumMismatch':'فشل التحقق من بصمة SHA-256. لا تفتح الملف.', 'verificationFailed':'تعذر التحقق من سلامة الملف.',
+    'downloadedFileMissing':'أبلغ النظام باكتمال التنزيل، لكن لم يتم العثور على الملف أو كان فارغًا. حاول مجددًا.', 'nativeMissing':'اختفت مهمة التحميل من النظام. أعد المحاولة يدويًا.', 'mediaInterrupted':'توقفت مهمة الوسائط عند إغلاق التطبيق. أعد المحاولة لاستئناف العمل.', 'transferProblem':'حدث خطأ في النقل. أعد المحاولة أو استبدل الرابط.', 'nativeQueueFailed':'تعذرت إضافة الملف إلى نظام التنزيل.', 'mediaInitFailed':'تعذر تهيئة محرك الوسائط.', 'mediaFailedTryAgain':'فشل تنزيل الوسائط. حاول مجددًا.', 'mediaRequestFailed':'فشل طلب الوسائط. أعد المحاولة.', 'checksumMismatch':'فشل التحقق من بصمة SHA-256. لا تفتح الملف.', 'verificationFailed':'تعذر التحقق من سلامة الملف.',
     'searchFiles':'ابحث باسم الملف', 'sortFiles':'تغيير ترتيب الملفات',
     'appName':'عدنان لود', 'brand':'ADNANLOAD', 'subtitle':'تحميل بلا تعقيد',
     'downloads':'التحميلات', 'browser':'المتصفح', 'media':'الفيديو والصوت', 'settings':'الإعدادات',
@@ -16,7 +16,7 @@ class AppStrings {
     'resume':'استئناف', 'pause':'إيقاف مؤقت', 'retry':'إعادة المحاولة', 'remove':'حذف من القائمة',
     'open':'فتح', 'copyLink':'نسخ الرابط', 'details':'التفاصيل', 'shareReceived':'رابط مستلَم',
     'language':'اللغة', 'arabic':'العربية', 'english':'الإنجليزية', 'theme':'المظهر',
-    'neon':'نيون سماوي وبنفسجي', 'gold':'ذهبي ملكي', 'dark':'داكن', 'light':'فاتح', 'midnight':'أزرق ليلي', 'emerald':'زمردي',
+    'neon':'نيون سماوي وبنفسجي', 'gold':'ذهبي فاتح', 'dark':'داكن', 'light':'فاتح', 'midnight':'أزرق ليلي', 'emerald':'زمردي',
     'wifiOnly':'التحميل عبر Wi-Fi فقط', 'notification':'إشعارات تقدم التحميل',
     'security':'الخصوصية والأمان', 'help':'المساعدة', 'about':'حول البرنامج',
     'author':'هذا البرنامج تمت برمجته وتطويره بواسطة م. عدنان كمال حمدان',
@@ -162,7 +162,7 @@ class AppStrings {
     'healthPrivacy':'حالات وأعداد فقط دون روابط أو أسماء ملفات',
   };
   static const Map<String, String> en = {
-    'nativeMissing':'Android no longer has this transfer. Retry manually.', 'mediaInterrupted':'Media task was interrupted. Retry to restart.', 'transferProblem':'Transfer failed. Retry or replace the link.', 'nativeQueueFailed':'Could not queue the file in Android downloader.', 'mediaInitFailed':'Media engine initialization failed.', 'mediaFailedTryAgain':'Media download failed. Please retry.', 'mediaRequestFailed':'Media request failed. Please retry.', 'checksumMismatch':'SHA-256 checksum mismatch. Do not open this file.', 'verificationFailed':'Could not verify the file integrity.',
+    'downloadedFileMissing':'The transfer finished, but the saved file was missing or empty. Retry the download.', 'nativeMissing':'Android no longer has this transfer. Retry manually.', 'mediaInterrupted':'Media task was interrupted. Retry to restart.', 'transferProblem':'Transfer failed. Retry or replace the link.', 'nativeQueueFailed':'Could not queue the file in Android downloader.', 'mediaInitFailed':'Media engine initialization failed.', 'mediaFailedTryAgain':'Media download failed. Please retry.', 'mediaRequestFailed':'Media request failed. Please retry.', 'checksumMismatch':'SHA-256 checksum mismatch. Do not open this file.', 'verificationFailed':'Could not verify the file integrity.',
     'searchFiles':'Search by file name', 'sortFiles':'Change file sort order',
     'appName':'AdnanLoad', 'brand':'ADNANLOAD', 'subtitle':'Downloads without complexity',
     'downloads':'Downloads', 'browser':'Browser', 'media':'Video & Audio', 'settings':'Settings',
@@ -177,7 +177,7 @@ class AppStrings {
     'resume':'Resume', 'pause':'Pause', 'retry':'Retry', 'remove':'Remove from list',
     'open':'Open', 'copyLink':'Copy URL', 'details':'Details', 'shareReceived':'Shared link received',
     'language':'Language', 'arabic':'Arabic', 'english':'English', 'theme':'Appearance',
-    'neon':'Cyan Violet Neon', 'gold':'Royal Gold', 'dark':'Dark', 'light':'Light', 'midnight':'Midnight Blue', 'emerald':'Emerald',
+    'neon':'Cyan Violet Neon', 'gold':'Light Gold', 'dark':'Dark', 'light':'Light', 'midnight':'Midnight Blue', 'emerald':'Emerald',
     'wifiOnly':'Download over Wi-Fi only', 'notification':'Download progress notifications',
     'security':'Privacy & security', 'help':'Help', 'about':'About',
     'author':'This program was designed and developed by Eng. Adnan Kamal Hamdan',
