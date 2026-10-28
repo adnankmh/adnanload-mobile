@@ -12,6 +12,21 @@ void main() {
     expect(BrandThemes.names.contains('gold'), isTrue);
   });
 
+  test('all three palettes scale typography without null-fontSize assertions', () {
+    for (final palette in BrandThemes.names) {
+      for (final scale in [0.9, 1.0, 1.35]) {
+        final theme = BrandThemes.build(palette, fontScale: scale);
+        expect(theme.textTheme.bodyMedium?.fontSize, greaterThan(0));
+        expect(theme.textTheme.displayLarge?.fontSize, greaterThan(0));
+        expect(theme.brightness, palette == 'dark' ? Brightness.dark : Brightness.light);
+      }
+    }
+    expect(
+      BrandThemes.build('dark', fontScale: 1.35).textTheme.bodyMedium!.fontSize!,
+      greaterThan(BrandThemes.build('dark', fontScale: 0.9).textTheme.bodyMedium!.fontSize!),
+    );
+  });
+
   testWidgets('new home UI is wired to download callback, not a simulation',
       (tester) async {
     final repo = DownloadRepository();
