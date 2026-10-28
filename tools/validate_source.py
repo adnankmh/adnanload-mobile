@@ -1,6 +1,7 @@
 """Static packaging checks; not a replacement for flutter analyze/test/build."""
 from pathlib import Path
 import re, sys, xml.etree.ElementTree as ET
+from version_policy import supported_version
 root=Path(__file__).resolve().parents[1]
 errors=[]
 
@@ -64,7 +65,7 @@ print('Flutter SDK available: not checked by this script')
 
 # V1.5 source-only feature contract checks (NOT runtime tests).
 pubspec=(root/'pubspec.yaml').read_text(encoding='utf-8')
-check('version: 2.1.0+10' in pubspec, 'V1.6 version missing')
+check(supported_version(pubspec), 'Flutter release version is below minimum or invalid')
 for dep in ('connectivity_plus:', 'battery_plus:', 'background_downloader:'):
     check(dep in pubspec, f'missing policy dependency: {dep}')
 for name in ('lib/core/transfer_policy.dart','lib/core/download_metrics.dart',
