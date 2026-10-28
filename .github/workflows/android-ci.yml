@@ -35,13 +35,15 @@ jobs:
 
       - name: Cache Gradle distributions and dependencies
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
       - name: Set up Flutter 3.47.8 (Dart 3.13)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.8'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Verify SDK and repository layout
         shell: bash
