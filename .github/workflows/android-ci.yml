@@ -33,6 +33,23 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Reclaim non-Android disk space on GitHub runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Disk space before cleanup:"
+          df -h /
+          # These preinstalled SDKs are unrelated to Flutter/Java/Android builds.
+          # Never remove Android SDK build-tools, platforms, NDK or Flutter.
+          for path in /usr/share/dotnet /usr/local/share/powershell /usr/local/swift /opt/hostedtoolcache/CodeQL /opt/ghc /usr/local/.ghcup /usr/local/lib/android/sdk/system-images; do
+            if [ -e "$path" ]; then
+              echo "Removing unused toolchain: $path"
+              sudo rm -rf -- "$path"
+            fi
+          done
+          echo "Disk space after cleanup:"
+          df -h /
+
       - name: Cache Gradle distributions and dependencies
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -85,28 +102,57 @@ jobs:
       - name: Flutter unit tests
         run: flutter test
 
-      - name: Build universal Release APK
+      - name: Report build disk capacity
         shell: bash
         run: |
-          set -o pipefail
-          mkdir -p build/ci-diagnostics
-          flutter build apk --release --no-pub --verbose 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
+          echo "Available disk before Android build:"
+          df -h /
+          echo "Existing build and cache footprint:"
+          du -sh build "$HOME/.gradle" "$HOME/.pub-cache" 2>/dev/null || true
 
-      - name: Build smaller split Release APKs (optional)
+      - name: Build ARM64 Release APK (default, modern Android phones)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.split_apks) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-diagnostics
+          flutter build apk --release --no-pub --target-platform android-arm64 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
+
+      - name: Build split Release APKs (optional, other CPU architectures)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.split_apks }}
-        run: flutter build apk --release --split-per-abi
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-diagnostics
+          flutter build apk --release --no-pub --split-per-abi 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
 
       - name: Validate generated APK archive and Android package
         shell: bash
         run: |
           set -euo pipefail
-          apk=build/app/outputs/flutter-apk/app-release.apk
-          test -s "$apk"
-          unzip -tqq "$apk"
+          shopt -s nullglob
+          apks=(build/app/outputs/flutter-apk/*.apk)
+          if [ "${#apks[@]}" -eq 0 ]; then
+            echo "::error::No APK generated in build/app/outputs/flutter-apk/"
+            exit 1
+          fi
           aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
-          "$aapt" dump badging "$apk" > build/ci-diagnostics/apk-badging.txt
-          head -n 12 build/ci-diagnostics/apk-badging.txt
-          grep -q "package: name='com.adnanload.adnanload_mobile'" build/ci-diagnostics/apk-badging.txt
+          test -x "$aapt"
+          mkdir -p build/ci-diagnostics
+          for apk in "${apks[@]}"; do
+            echo "Validating $apk"
+            test -s "$apk"
+            unzip -tqq "$apk"
+            report="build/ci-diagnostics/$(basename "$apk").badging.txt"
+            "$aapt" dump badging "$apk" > "$report"
+            head -n 12 "$report"
+            grep -Fq "package: name='com.adnanload.adnanload_mobile'" "$report"
+            if [[ "$apk" == *app-release.apk || "$apk" == *arm64-v8a-release.apk ]]; then
+              unzip -Z1 "$apk" > build/ci-diagnostics/apk-contents.txt
+              grep -q '^lib/arm64-v8a/' build/ci-diagnostics/apk-contents.txt
+            fi
+          done
+          df -h /
 
       - name: Write checksums and release metadata
         shell: bash
@@ -121,7 +167,7 @@ jobs:
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ADNANLOAD-v2.1.2-RELEASE-APK
+          name: ADNANLOAD-v2.1.3-RELEASE-APK
           path: |
             build/app/outputs/flutter-apk/*.apk
             build/release-checksums/*.txt
