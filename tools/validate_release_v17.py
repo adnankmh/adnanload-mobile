@@ -12,7 +12,9 @@ checks={
   'restore native jobs on startup': 'await _reconcileInterruptedDirect();' in src('lib/services/download_repository.dart'),
   'serialize history writes': '_persistTail' in src('lib/services/download_repository.dart'),
   'keep active history': "...active.map((e) => jsonEncode(e.toJson()))" in src('lib/services/download_repository.dart'),
-  'safe local error keys': "item.error = 'mediaFailedTryAgain'" in src('lib/services/download_repository.dart'),
+  'safe local error keys': "MediaFailure.classify" in src('lib/services/download_repository.dart') and
+    "mediaUnknownError" in src('lib/core/app_strings.dart') and
+    "mediaAccessDenied" in src('lib/core/app_strings.dart'),
   'filename search': "fileQuery" in src('lib/screens/files_hub_page.dart'),
   'large display navigation': "NavigationRail(" in src('lib/main.dart'),
   'smart playback retained': 'enqueueSelectedPlaylist' in src('lib/services/download_repository.dart'),
