@@ -45,6 +45,12 @@ class SettingsPage extends StatelessWidget {
             items:[0,15,25,40].map((v)=>DropdownMenuItem(value:v,
               child:Text(v==0?t('noLimit'):'$v%'))).toList(),
             onChanged:(v)=>repo.updateSettings(newBatteryFloor:v))),
+        SwitchListTile(
+          secondary:const Icon(Icons.file_open_rounded),
+          title:Text(t('autoOpenSafeFiles')),
+          subtitle:Text(t('autoOpenSafeFilesHint')),
+          value:repo.autoOpenSafeFiles,
+          onChanged:(v)=>repo.updateSettings(newAutoOpenSafeFiles:v)),
         SwitchListTile(secondary:const Icon(Icons.notifications_outlined),title:Text(t('notification')),
           value:repo.notifications,onChanged:(v)=>repo.updateSettings(newNotifications:v)),
         ListTile(leading:const Icon(Icons.storage_rounded),title:Text(t('storageLimit')),
