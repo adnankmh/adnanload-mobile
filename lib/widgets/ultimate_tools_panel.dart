@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -77,10 +76,9 @@ class _UltimateToolsPanelState extends State<UltimateToolsPanel> {
     if(approved!=true||!mounted)return;
     setState(()=>busy=true);
     try {
-      final picked=await FilePicker.platform.pickFiles(type:FileType.custom,allowedExtensions:['json']);
-      if(picked==null||picked.files.isEmpty)return;
-      final file=picked.files.single;
-      final text=file.bytes!=null?utf8.decode(file.bytes!):await File(file.path!).readAsString();
+      final file=await FilePicker.pickFile(type:FileType.custom,allowedExtensions:['json']);
+      if(file==null)return;
+      final text=utf8.decode(await file.readAsBytes());
       final count=await widget.repo.restoreBackup(BackupService.parse(text));
       _showMessage('${t('restoreSuccess')}: $count');
     }catch(e){_showMessage(e.toString());}

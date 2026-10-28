@@ -6,7 +6,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'core/app_strings.dart';
 import 'core/theme.dart';
-import 'core/url_guard.dart';
 import 'core/playlist_rules.dart';
 import 'services/download_repository.dart';
 import 'services/android_schedule_service.dart';

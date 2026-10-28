@@ -32,7 +32,7 @@ void main() {
       theme:'gold',language:'ar',wifiOnly:false);
     final parsed=BackupService.parse(jsonEncode(archive));
     final entries=BackupService.validEntries(parsed);
-    expect(entries,singleItem);
+    expect(entries,hasLength(1));
     expect(entries.single.path,isEmpty);
     expect(entries.single.name, isNot(contains('/')));
     expect(entries.single.status,'waiting');
