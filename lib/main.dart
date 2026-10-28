@@ -194,6 +194,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.repo.setAppVisible(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.repo.onForeground());
     }
