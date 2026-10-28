@@ -30,7 +30,8 @@ class AndroidConfigurationTests(unittest.TestCase):
             (app/'src/main').mkdir(parents=True)
             (app/'src/main/AndroidManifest.xml').write_text('<manifest/>',encoding='utf-8')
             (app/'build.gradle.kts').write_text('''plugins { id("com.android.application") }
-android { defaultConfig { minSdk = flutter.minSdkVersion }
+android { compileSdk = flutter.compileSdkVersion
+    defaultConfig { minSdk = flutter.minSdkVersion }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17 }
 }
 ''',encoding='utf-8')
@@ -46,6 +47,9 @@ android { defaultConfig { minSdk = flutter.minSdkVersion }
             text=(app/'build.gradle.kts').read_text()
             gradle=(root/'android/build.gradle.kts').read_text()
             self.assertIn('minSdk = 24',text)
+            self.assertIn('compileSdk = 37',text)
+            self.assertEqual(text.count('keepDebugSymbols.add("**/lib*.zip.so")'),1)
+            self.assertEqual((root/'android/gradle.properties').read_text().count('android.suppressUnsupportedCompileSdk=37'),1)
             self.assertEqual(text.count('coreLibraryDesugaring('),1)
             self.assertEqual(text.count('isCoreLibraryDesugaringEnabled'),1)
             self.assertEqual(gradle.count('https://jitpack.io'),1)
