@@ -1,6 +1,6 @@
 > **لإنشاء Release APK عبر GitHub Actions:** راجع `GITHUB_ACTIONS_AR.md`، وشغّل `UPLOAD_TO_GITHUB.bat` من Windows بعد تثبيت Git وGitHub CLI.
 
-# ADNANLOAD MOBILE v2.1.3 — برنامج تنزيل شامل لهواتف Android / Flutter
+# ADNANLOAD MOBILE v2.1.4 — برنامج تنزيل شامل لهواتف Android / Flutter
 
 ## ما الجديد في النسخة المصححة؟
 
@@ -29,8 +29,8 @@
 
 ## بناء Release APK عبر GitHub بدون Flutter على Windows
 
-- **استخدم الدليل المحدث `GITHUB_ACTIONS_AR.md`**؛ يشرح الرفع الآلي للمستودع الخاص عبر `UPLOAD_TO_GITHUB.bat` أو GitHub Desktop، ثم تشغيل Actions وتنزيل ملف `ADNANLOAD-v2.1.3-RELEASE-APK`.
-- المسار الافتراضي يبني `app-release.apk` لمعمارية **ARM64 فقط** لتفادي نفاد مساحة GitHub Runner. ويمكن إنتاج نسخ معماريات أخرى عبر خيار `split_apks` يدويًا، وقد تحتاج مساحة بناء أكبر.
+- **استخدم الدليل المحدث `GITHUB_ACTIONS_AR.md`**؛ يشرح الرفع الآلي للمستودع الخاص عبر `UPLOAD_TO_GITHUB.bat` أو GitHub Desktop، ثم تشغيل Actions وتنزيل ملف `ADNANLOAD-v2.1.4-RELEASE-APK`.
+- المسار الافتراضي يبني `app-arm64-v8a-release.apk` لمعمارية **ARM64 فقط** باستخدام `--split-per-abi` الرسمي من Flutter. يساعد هذا على منع تضمين مكتبات 32-bit وx86_64، لكنه لا يضمن حجم 50 MB؛ لأن محركات استخراج الوسائط وFFmpeg وPython مرفقة داخل APK. تُسجّل أداة `tools/report_apk_size.py` الحجم الفعلي وتفصيل مكوناته، وتصدر تحذيرًا إذا تجاوز 50 MB، دون تعطيل نشر نسخة سليمة. يمكن بناء معماريات أخرى يدويًا من خيار `split_apks`.
 - من دون أسرار التوقيع الأربع، يكون ملف Release mode موقّعًا بمفتاح اختبار Debug، وليس مفتاح توزيع ثابت. تفاصيل التوقيع في الدليل.
 
 ## الميزات المحفوظة
