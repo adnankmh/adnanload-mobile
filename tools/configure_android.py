@@ -8,6 +8,13 @@ manifest=android/'app/src/main/AndroidManifest.xml'
 if not manifest.parent.exists():
     raise SystemExit('Android Flutter scaffold missing. Run flutter create first.')
 shutil.copy2(root/'platform_overrides/android/app/src/main/AndroidManifest.xml',manifest)
+# Install the opt-in Android overlay/capture activity alongside the generated
+# Flutter MainActivity. Keep this source separate from the generated scaffold.
+source_activity=root/'platform_overrides/android/app/src/main/kotlin/com/adnanload/adnanload_mobile/MainActivity.kt'
+target_activity=android/'app/src/main/kotlin/com/adnanload/adnanload_mobile/MainActivity.kt'
+target_activity.parent.mkdir(parents=True, exist_ok=True)
+shutil.copy2(source_activity,target_activity)
+
 
 for gradle in [android/'app/build.gradle.kts',android/'app/build.gradle']:
     if not gradle.exists():

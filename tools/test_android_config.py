@@ -22,7 +22,8 @@ class AndroidConfigurationTests(unittest.TestCase):
                 dest=root/source.relative_to(ORIGIN)
                 dest.parent.mkdir(parents=True,exist_ok=True)
                 shutil.copy2(source,dest)
-            for source in (ORIGIN/'platform_overrides').rglob('*.xml'):
+            for source in (ORIGIN/'platform_overrides').rglob('*'):
+                if source.suffix not in ('.xml', '.kt'): continue
                 dest=root/source.relative_to(ORIGIN)
                 dest.parent.mkdir(parents=True,exist_ok=True)
                 shutil.copy2(source,dest)
@@ -71,6 +72,12 @@ android { compileSdk = flutter.compileSdkVersion
             self.assertNotIn('android:extractNativeLibs',manifest)
             self.assertNotIn('tools:replace="android:extractNativeLibs"',manifest)
             self.assertIn('UIDTJobService',manifest)
+            self.assertIn('SYSTEM_ALERT_WINDOW', manifest)
+            self.assertIn('android.intent.action.VIEW', manifest)
+            self.assertIn('android.intent.action.SEND_MULTIPLE', manifest)
+            native=(app/'src/main/kotlin/com/adnanload/adnanload_mobile/MainActivity.kt').read_text()
+            self.assertIn('TYPE_APPLICATION_OVERLAY', native)
+            self.assertIn('ACTION_MANAGE_OVERLAY_PERMISSION',native)
             ET.parse(app/'src/main/AndroidManifest.xml')
             for lang in ('values','values-ar'):
                 resource=app/'src/main/res'/lang/'strings.xml'

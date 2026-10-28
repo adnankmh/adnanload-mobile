@@ -8,6 +8,7 @@ import 'core/app_strings.dart';
 import 'core/theme.dart';
 import 'core/playlist_rules.dart';
 import 'services/download_repository.dart';
+import 'services/quick_capture.dart';
 import 'services/android_schedule_service.dart';
 import 'services/crash_journal.dart';
 import 'screens/browser_page.dart';
@@ -19,6 +20,8 @@ import 'widgets/new_download_sheet.dart';
 import 'widgets/privacy_gate.dart';
 import 'widgets/batch_download_sheet.dart';
 import 'core/batch_links.dart';
+import 'core/smart_link.dart';
+import 'core/url_guard.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,12 +89,44 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    QuickCapture.onLink = _fromExternalLink;
+    QuickCapture.onBubbleTapped = () => unawaited(_pasteAsDownload());
+    QuickCapture.initialize();
+    QuickCapture.initialLink().then((value) {
+      if (value != null && mounted) _fromExternalLink(value);
+    }).catchError((Object _) {});
     _shareSub = ReceiveSharingIntent.instance.getMediaStream().listen(_receiveFiles,
       onError: (Object _) {});
     ReceiveSharingIntent.instance.getInitialMedia().then((items) {
       _receiveFiles(items);
       ReceiveSharingIntent.instance.reset();
     }).catchError((Object _) {});
+  }
+
+  void _fromExternalLink(String raw) {
+    if (!mounted || UrlGuard.validate(raw) == null) return;
+    final type = SmartLink.kind(raw);
+    if (widget.repo.autoStartSharedLinks) {
+      unawaited(_startSharedDownload(raw, type));
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showDownload(raw, type);
+    });
+  }
+
+  Future<void> _startSharedDownload(String url, String type) async {
+    try {
+      await widget.repo.enqueue(url:url, name:'', kind:type=='playlist'?'video':type,
+        playlist:type=='playlist', priority:8);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.repo.language=='ar'
+          ?'أُضيف الرابط إلى التنزيلات':'Link added to download queue')));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.repo.language=='ar'
+          ?'تعذر إضافة الرابط؛ راجع التنزيلات':'Unable to queue link; check Downloads')));
+    }
   }
 
   void _receiveFiles(List<SharedMediaFile> items) {
@@ -103,8 +138,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
       if(incoming.length > 1){_showBatch(incoming.join('\n'));}
       else {
         final raw=incoming.single;
-        _showDownload(raw,PlaylistRules.looksLikePlaylist(raw)?'playlist'
-          :PlaylistRules.looksLikeMediaSite(raw)?'video':'direct');
+        _fromExternalLink(raw);
       }
     });
   }
@@ -129,6 +163,21 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
       builder: (_) => NewDownloadSheet(repo: widget.repo, strings: s,
         initialUrl: url, initialKind: kind),
     );
+  }
+
+  Future<void> _pasteAsDownload() async {
+    final clip=(await Clipboard.getData(Clipboard.kTextPlain))?.text??'';
+    if (!mounted) return;
+    final urls=BatchLinks.parse(clip);
+    if (urls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(widget.repo.language=='ar'
+          ?'الحافظة لا تحتوي على رابط صالح':'No valid download link on clipboard')));
+    } else if (urls.length>1) {
+      _showBatch(urls.join('\n'));
+    } else {
+      _fromExternalLink(urls.single);
+    }
   }
 
   void _openSettings() {
@@ -163,6 +212,7 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    widget.repo.setAppVisible(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.repo.onForeground());
     }
@@ -172,6 +222,8 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _shareSub?.cancel();
+    QuickCapture.onLink = null;
+    QuickCapture.onBubbleTapped = null;
     super.dispose();
   }
 
@@ -208,6 +260,8 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
               fontWeight: FontWeight.w900, color: colors.onSurface))),
         ]),
         actions: [
+          IconButton(tooltip:s.t('paste'),onPressed:_pasteAsDownload,
+            icon:const Icon(Icons.content_paste_go_rounded)),
           IconButton(tooltip:s.t('batchTitle'),onPressed:_showBatch,
             icon:const Icon(Icons.playlist_add_rounded)),
           _HeaderAction(icon: Icons.help_outline_rounded, label: s.t('quickHelp'),
@@ -218,6 +272,10 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
           const SizedBox(width: 14),
         ],
       ),
+      floatingActionButton: page == 0 ? FloatingActionButton.small(
+        heroTag:'quickPaste', tooltip:s.t('paste'),
+        onPressed:_pasteAsDownload,
+        child:const Icon(Icons.content_paste_go_rounded)) : null,
       body: largeScreen ? Row(children: [
         NavigationRail(
           selectedIndex: page,

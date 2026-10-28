@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
 import '../core/theme.dart';
 import '../services/download_repository.dart';
+import '../services/quick_capture.dart';
 import '../widgets/ultimate_tools_panel.dart';
 import 'package:flutter/services.dart';
 
@@ -43,6 +45,18 @@ class SettingsPage extends StatelessWidget {
             items:[0,15,25,40].map((v)=>DropdownMenuItem(value:v,
               child:Text(v==0?t('noLimit'):'$v%'))).toList(),
             onChanged:(v)=>repo.updateSettings(newBatteryFloor:v))),
+        SwitchListTile(
+          secondary:const Icon(Icons.quickreply_rounded),
+          title:Text(t('autoStartSharedLinks')),
+          subtitle:Text(t('autoStartSharedLinksHint')),
+          value:repo.autoStartSharedLinks,
+          onChanged:(v)=>repo.updateSettings(newAutoStartSharedLinks:v)),
+        SwitchListTile(
+          secondary:const Icon(Icons.file_open_rounded),
+          title:Text(t('autoOpenSafeFiles')),
+          subtitle:Text(t('autoOpenSafeFilesHint')),
+          value:repo.autoOpenSafeFiles,
+          onChanged:(v)=>repo.updateSettings(newAutoOpenSafeFiles:v)),
         SwitchListTile(secondary:const Icon(Icons.notifications_outlined),title:Text(t('notification')),
           value:repo.notifications,onChanged:(v)=>repo.updateSettings(newNotifications:v)),
         ListTile(leading:const Icon(Icons.storage_rounded),title:Text(t('storageLimit')),
@@ -66,6 +80,34 @@ class SettingsPage extends StatelessWidget {
         Padding(padding:const EdgeInsets.all(12),child:Text(t('directThreadsHint'),
           style:Theme.of(context).textTheme.bodySmall)),
       ]))),
+      const SizedBox(height:16),
+      if (Platform.isAndroid) ValueListenableBuilder<bool>(
+        valueListenable:QuickCapture.visible,
+        builder:(context,visible,_)=>Card(child:SwitchListTile(
+          secondary:const Icon(Icons.picture_in_picture_alt_rounded),
+          title:Text(t('quickBubble')),
+          subtitle:Text(t('quickBubbleHint')),
+          value:visible,
+          onChanged:(enabled) async {
+            try {
+              if (enabled) {
+                if (!await QuickCapture.hasPermission()) {
+                  await QuickCapture.requestPermission();
+                  if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content:Text(t('quickBubbleGrant'))));
+                  return;
+                }
+                await QuickCapture.enableBubble();
+              } else {
+                await QuickCapture.disableBubble();
+              }
+            } catch (_) {
+              if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content:Text(t('quickBubbleGrant'))));
+            }
+          },
+        )),
+      ),
       const SizedBox(height:16),
       Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
         Text(t('security'),style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),
