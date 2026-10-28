@@ -272,7 +272,7 @@ class _BrowserPageState extends State<BrowserPage> with WidgetsBindingObserver {
         if((detected[browsers[active]]??[]).isNotEmpty)
           PositionedDirectional(end:16,bottom:16,child:FloatingActionButton.extended(
             heroTag:'detectedMedia',onPressed:_showDetected,
-            icon:const Icon(Icons.video_file_rounded),label:Text(t('detectedMedia')))),
+            icon:const Icon(Icons.download_for_offline_rounded),label:Text('${(detected[browsers[active]]??[]).length} · ${t('detectedMedia')}'))),
       ])),
       SafeArea(top:false,child:Padding(padding:const EdgeInsets.symmetric(horizontal:8,vertical:6),child:Row(children:[
         Expanded(child:FilledButton.icon(onPressed:()=>widget.onDownload(current,'direct'),
