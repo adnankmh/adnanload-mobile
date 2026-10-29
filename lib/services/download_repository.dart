@@ -14,6 +14,7 @@ import 'package:open_filex/open_filex.dart';
 
 import '../core/url_guard.dart';
 import '../core/media_failure.dart';
+import '../core/media_output.dart';
 import '../core/smart_link.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
@@ -658,10 +659,10 @@ class DownloadRepository extends ChangeNotifier {
     }
     item.status = 'running'; item.error = ''; notifyListeners(); _persistSoon();
     final docs = await getApplicationDocumentsDirectory();
-    final output = Directory('${docs.path}/ADNANLOAD/media');
+    final output = MediaOutput.jobDirectory(
+      Directory('${docs.path}/ADNANLOAD/media'), item.id);
     await output.create(recursive: true);
-    final basename = UrlGuard.safeName(item.name.replaceFirst(
-      RegExp(r'\.(mp3|mp4|webm|m4a|flac|wav|opus)$', caseSensitive:false), ''));
+    final basename = MediaOutput.basename(item.name);
     // A playlist MUST NOT write every entry under one constant basename.
     // yt-dlp resolves playlist metadata and assigns a unique item filename.
     final template = item.isPlaylist
@@ -703,35 +704,15 @@ class DownloadRepository extends ChangeNotifier {
         if (item.isPlaylist) {
           item.path = playlistDir.path;
         } else {
-          final returned = result.outputPath ?? '';
-          if (returned.isNotEmpty && await File(returned).exists()) {
-            item.path = returned;
-          } else {
-            final media = await output.list(followLinks: false)
-              .where((e) => e is File && !e.path.endsWith('.part'))
-              .cast<File>().toList();
-            final candidates = <File>[];
-            for (final file in media) {
-              if (file.path.split(Platform.pathSeparator).last.startsWith('$basename.') &&
-                  await file.length() > 0) candidates.add(file);
-            }
-            if (candidates.length == 1) item.path = candidates.single.path;
-          }
+          item.path = await MediaOutput.singleFile(output, basename, result.outputPath) ?? '';
         }
-        var produced = false;
-        if (item.isPlaylist && await playlistDir.exists()) {
-          await for (final child in playlistDir.list(recursive: true, followLinks: false)) {
-            if (child is File && !child.path.endsWith('.part') && await child.length() > 0) {
-              produced = true;
-              break;
-            }
-          }
-        } else if (!item.isPlaylist && item.path.isNotEmpty) {
-          produced = await File(item.path).exists() && await File(item.path).length() > 0;
-        }
+        final produced = item.isPlaylist
+            ? await MediaOutput.hasPlaylistMedia(playlistDir)
+            : item.path.isNotEmpty;
         item.status = produced ? 'complete' : 'error';
         item.error = produced ? '' : 'downloadedFileMissing';
         if (produced) {
+          if (!item.isPlaylist) item.name = item.path.split(Platform.pathSeparator).last;
           item.progress = 1;
           _maybeOpenCompleted(item);
         }
