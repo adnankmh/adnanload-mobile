@@ -8,6 +8,8 @@ on:
         type: boolean
         default: false
         required: false
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -170,7 +172,7 @@ jobs:
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: ADNANLOAD-v2.3.0-RELEASE-APK
+          name: ADNANLOAD-v2.3.1-RELEASE-APK
           path: |
             build/app/outputs/flutter-apk/*.apk
             build/release-checksums/*.txt
