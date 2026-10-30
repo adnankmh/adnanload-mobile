@@ -4,19 +4,31 @@ class UrlGuard {
     if (uri == null || !uri.hasAuthority ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
         uri.host.isEmpty || uri.userInfo.isNotEmpty) return null;
-    final host = uri.host.toLowerCase();
-    if (host == 'localhost' || host.endsWith('.localhost') ||
+    // A trailing DNS root dot must not bypass local-host checks.
+    final host = uri.host.toLowerCase().replaceFirst(RegExp(r'\.+$'), '');
+    if (host.isEmpty || host.split('.').contains('') ||
+        host == 'localhost' || host.endsWith('.localhost') ||
         host.endsWith('.local') || host.endsWith('.internal') ||
         host == '0.0.0.0' || host == '::1' || host.contains(':')) return null;
     final ip = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$');
     if (ip.hasMatch(host)) {
-      final parts = host.split('.').map(int.parse).toList();
+      // Other URL stacks may interpret zero-prefixed octets as octal.
+      final octets = host.split('.');
+      if (octets.any((part) => part.length > 1 && part.startsWith('0'))) {
+        return null;
+      }
+      final parts = octets.map(int.parse).toList();
       if (parts.any((n) => n > 255) || parts[0] == 0 || parts[0] == 10 ||
           parts[0] == 127 || parts[0] >= 224 ||
           (parts[0] == 169 && parts[1] == 254) ||
           (parts[0] == 192 && parts[1] == 168) ||
           (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) ||
           (parts[0] == 100 && parts[1] >= 64 && parts[1] <= 127)) return null;
+    } else {
+      // Shortened, decimal and hexadecimal IPv4 host aliases can resolve to
+      // private addresses (127.1, 2130706433, 0x7f000001).
+      final numericLabel = RegExp(r'^(?:[0-9]+|0x[0-9a-f]+)$');
+      if (host.split('.').every(numericLabel.hasMatch)) return null;
     }
     return uri;
   }
