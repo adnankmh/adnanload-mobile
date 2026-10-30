@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
 import '../core/batch_links.dart';
+import '../core/batch_csv_import.dart';
 import '../core/batch_text_import.dart';
 import '../core/smart_link.dart';
 import '../services/download_repository.dart';
@@ -21,11 +22,11 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
   bool busy=false;
   bool later=false;
   String mode='auto';
-  Future<void> _importTxt() async {
+  Future<void> _importLinksFile() async {
     if (busy) return;
     try {
       final selected = await FilePicker.pickFile(
-        type: FileType.custom, allowedExtensions: const ['txt'],
+        type: FileType.custom, allowedExtensions: const ['txt', 'csv'],
       );
       if (selected == null || !mounted) return;
       final knownLength = selected.lengthSync();
@@ -34,9 +35,12 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
       }
       // Read through the picker API: Android SAF documents may not have a
       // usable local path or report a file size.
-      final imported = await BatchTextImport.decodeStream(
+      final decoded = await BatchTextImport.decodeStream(
         selected.readAsByteStream(),
       );
+      final imported = selected.name.toLowerCase().endsWith('.csv')
+          ? BatchCsvImport.extractUrls(decoded)
+          : decoded;
       if (!mounted) return;
       final previous = controller.text.trimRight();
       controller.text = previous.isEmpty ? imported : '$previous\n$imported';
@@ -67,7 +71,7 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
               border:const OutlineInputBorder())),
           Align(alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
-              onPressed: busy ? null : _importTxt,
+              onPressed: busy ? null : _importLinksFile,
               icon: const Icon(Icons.file_open_rounded),
               label: Text(t('batchImportTxt')),
             )),
