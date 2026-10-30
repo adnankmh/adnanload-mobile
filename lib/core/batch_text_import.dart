@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 /// Decodes a user-selected plain-text link list. No network access or
 /// background clipboard access is involved.
@@ -15,5 +16,18 @@ class BatchTextImport {
       throw const FormatException('TXT file is empty');
     }
     return text;
+  }
+
+  /// Stream Android SAF files with a strict limit, including when the picker
+  /// cannot report their length. Never load an unbounded file into memory.
+  static Future<String> decodeStream(Stream<List<int>> chunks) async {
+    final buffer = BytesBuilder(copy: false);
+    await for (final chunk in chunks) {
+      if (chunk.length > maxBytes - buffer.length) {
+        throw const FormatException('TXT file exceeds 1 MiB');
+      }
+      buffer.add(chunk);
+    }
+    return decode(buffer.takeBytes());
   }
 }
