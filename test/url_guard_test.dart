@@ -15,6 +15,33 @@ void main() {
       expect(UrlGuard.validate(url), isNull, reason:url);
     }
   });
+  test('blocks alternate numeric spellings of private hosts', () {
+    for (final url in [
+      'http://127.1/admin',
+      'http://2130706433/admin',
+      'http://0x7f000001/admin',
+      'http://0177.0.0.1/admin',
+      'http://127.0.0.1./admin',
+      'http://localhost./admin',
+      'http://192.168.1.1./admin',
+      'http://10.1/private',
+      'http://192.168.001.001/private',
+    ]) {
+      expect(UrlGuard.validate(url), isNull, reason: url);
+    }
+  });
+
+  test('continues accepting ordinary public IPs and domain names', () {
+    for (final url in [
+      'https://example.org/file.zip',
+      'https://cdn123.example.org/video.mp4',
+      'https://example.org./file.zip',
+      'http://8.8.8.8/file.zip',
+    ]) {
+      expect(UrlGuard.validate(url), isNotNull, reason: url);
+    }
+  });
+
   test('suggests original decoded filename', () {
     expect(UrlGuard.nameFromUrl('https://example.com/hello%20world.pdf?token=a'), 'hello world.pdf');
   });
