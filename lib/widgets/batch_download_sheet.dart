@@ -1,6 +1,10 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
 import '../core/batch_links.dart';
+import '../core/batch_text_import.dart';
 import '../core/smart_link.dart';
 import '../services/download_repository.dart';
 
@@ -19,6 +23,36 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
   bool busy=false;
   bool later=false;
   String mode='auto';
+  Future<void> _importTxt() async {
+    if (busy) return;
+    try {
+      final selection = await FilePicker.platform.pickFiles(
+        type: FileType.custom, allowedExtensions: const ['txt'],
+        withData: false,
+      );
+      if (selection == null || !mounted) return;
+      final selected = selection.files.single;
+      if (selected.size > BatchTextImport.maxBytes || selected.path == null) {
+        throw const FormatException('Invalid TXT file');
+      }
+      final file = File(selected.path!);
+      if (await file.length() > BatchTextImport.maxBytes) {
+        throw const FormatException('TXT file exceeds 1 MiB');
+      }
+      final imported = BatchTextImport.decode(await file.readAsBytes());
+      if (!mounted) return;
+      final previous = controller.text.trimRight();
+      controller.text = previous.isEmpty ? imported : '$previous\n$imported';
+      setState(() {});
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(widget.strings.t('batchImportFailed')),
+        ));
+      }
+    }
+  }
+
   @override void dispose(){ controller.dispose();super.dispose(); }
   @override Widget build(BuildContext context){
     final t=widget.strings.t;
@@ -34,6 +68,12 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
             textDirection:TextDirection.ltr, onChanged:(_)=>setState((){}),
             decoration:InputDecoration(hintText:'https://example.com/file.zip\nhttps://example.com/video.mp4',
               border:const OutlineInputBorder())),
+          Align(alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: busy ? null : _importTxt,
+              icon: const Icon(Icons.file_open_rounded),
+              label: Text(t('batchImportTxt')),
+            )),
           const SizedBox(height:8),Text('${t('batchUnique')}: ${unique.length} / ${BatchLinks.maxLinks}'),
           Wrap(spacing: 6, children: [
             for (final entry in const [
