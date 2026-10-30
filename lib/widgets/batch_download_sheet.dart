@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
@@ -26,20 +24,19 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
   Future<void> _importTxt() async {
     if (busy) return;
     try {
-      final selection = await FilePicker.platform.pickFiles(
+      final selected = await FilePicker.pickFile(
         type: FileType.custom, allowedExtensions: const ['txt'],
-        withData: false,
       );
-      if (selection == null || !mounted) return;
-      final selected = selection.files.single;
-      if (selected.size > BatchTextImport.maxBytes || selected.path == null) {
-        throw const FormatException('Invalid TXT file');
-      }
-      final file = File(selected.path!);
-      if (await file.length() > BatchTextImport.maxBytes) {
+      if (selected == null || !mounted) return;
+      final knownLength = selected.lengthSync();
+      if (knownLength != null && knownLength > BatchTextImport.maxBytes) {
         throw const FormatException('TXT file exceeds 1 MiB');
       }
-      final imported = BatchTextImport.decode(await file.readAsBytes());
+      // Read through the picker API: Android SAF documents may not have a
+      // usable local path or report a file size.
+      final imported = await BatchTextImport.decodeStream(
+        selected.readAsByteStream(),
+      );
       if (!mounted) return;
       final previous = controller.text.trimRight();
       controller.text = previous.isEmpty ? imported : '$previous\n$imported';
