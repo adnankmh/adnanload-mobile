@@ -109,11 +109,6 @@ class DownloadRepository extends ChangeNotifier {
     await bd.FileDownloader().start(autoCleanDatabase: false);
     _configureNotifications();
     await bd.FileDownloader().resumeFromBackground();
-    for (final entry in _items) {
-      if (entry.status == 'submitting' && !entry.nativeQueued) {
-        entry.status = 'waiting'; entry.autoQueue = true;
-      }
-    }
     _reconcileInterruptedMedia();
     await _reconcileScheduledDirect();
     await _reconcileInterruptedDirect();
@@ -191,21 +186,17 @@ class DownloadRepository extends ChangeNotifier {
     _persistSoon();
   }
 
-  /// Reconcile persistent local history with the native Android transfer DB.
-  /// Missing jobs are NOT automatically restarted, preventing overwrites and
-  /// surprise data use after a crash or an app update.
+  /// Recover direct jobs from the native Android database even when the UI
+  /// snapshot predates the enqueue callback. Do not guess native task state
+  /// after a platform-channel failure, and never silently recreate lost work.
   Future<void> _reconcileInterruptedDirect() async {
     for (final item in _items.where((e) => e.kind == 'direct' &&
-        !e.scheduledExternally && e.nativeQueued &&
+        !e.scheduledExternally &&
         {'running','submitting','waiting','paused'}.contains(e.status))) {
       try {
         final task = await bd.FileDownloader().taskForId(item.id);
-        if (task == null) {
-          item.nativeQueued = false;
-          item.status = 'error';
-          item.autoQueue = false;
-          item.error = 'nativeMissing';
-        }
+        TransferPolicy.reconcileRestoredDirect(item,
+            nativeTaskExists: task != null);
       } catch (_) {
         // A transient platform-channel failure is not evidence of missing work.
       }
