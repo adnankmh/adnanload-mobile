@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:adnanload_mobile/core/range_probe.dart';
@@ -19,42 +20,58 @@ bool safe({
   contentEncoding: contentEncoding,
 );
 
-// Flutter's test binding replaces HttpClient with a fake network client.
-// Use the real dart:io implementation only inside the loopback test zone.
-class _RealLoopbackHttpOverrides extends HttpOverrides {}
+// Flutter unit tests use a fake HttpClient; exercise the exact response
+// stream contract deterministically without opening sockets or using proxies.
+class _ProbeHeaders implements HttpHeaders {
+  _ProbeHeaders(this.values);
+  final Map<String, String> values;
 
-/// Exercise the real HTTP response stream without weakening URLGuard's
-/// public-host restriction in supportsSafeParallelDownload.
-Future<bool> probeLocalResponse({
+  @override
+  String? value(String name) => values[name.toLowerCase()];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ProbeResponse extends StreamView<List<int>>
+    implements HttpClientResponse {
+  _ProbeResponse({
+    required List<int> body,
+    required this.contentLength,
+    required this.headers,
+  }) : super(Stream<List<int>>.fromIterable(
+          body.isEmpty ? <List<int>>[] : <List<int>>[body],
+        ));
+
+  @override
+  final int contentLength;
+
+  @override
+  final HttpHeaders headers;
+
+  @override
+  int get statusCode => HttpStatus.partialContent;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Verify that header validation is not enough: the response stream must
+/// actually deliver exactly one byte. No URLGuard bypass or network I/O.
+Future<bool> probeStreamResponse({
   List<int> body = const [0x41],
   int declaredLength = 1,
   String contentRange = 'bytes 0-0/4096',
   String etag = '"v1"',
-}) => HttpOverrides.runWithHttpOverrides(() async {
-  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-  server.listen((request) async {
-    final reply = request.response;
-    reply.statusCode = HttpStatus.partialContent;
-    reply.headers.set('accept-ranges', 'bytes');
-    reply.headers.set('etag', etag);
-    reply.headers.set('content-range', contentRange);
-    reply.contentLength = declaredLength;
-    if (body.isNotEmpty) reply.add(body);
-    try { await reply.close(); } catch (_) { /* intentional truncated test response */ }
-  });
-  final client = HttpClient()
-    // Never route loopback regression tests through runner HTTP proxies.
-    ..findProxy = (_) => 'DIRECT';
-  try {
-    final request = await client.getUrl(
-      Uri.parse('http://127.0.0.1:${server.port}/probe'));
-    final response = await request.close();
-    return await RangeProbe.verifyProbeResponse(response);
-  } finally {
-    client.close(force: true);
-    await server.close(force: true);
-  }
-}, _RealLoopbackHttpOverrides());
+}) => RangeProbe.verifyProbeResponse(_ProbeResponse(
+  body: body,
+  contentLength: declaredLength,
+  headers: _ProbeHeaders({
+    'accept-ranges': 'bytes',
+    'etag': etag,
+    'content-range': contentRange,
+  }),
+));
 
 void main() {
   test('strong ETag and exact one-byte range permit parallel transfer', () {
@@ -99,15 +116,16 @@ void main() {
     expect(safe(contentEncoding: 'identity'), isTrue);
   });
 
-  test('real HTTP 206 response needs the advertised single body byte', () async {
-    expect(await probeLocalResponse(), isTrue);
-    expect(await probeLocalResponse(body: const []), isFalse);
-    expect(await probeLocalResponse(body: const [], declaredLength: 0), isFalse);
+  test('streamed HTTP 206 response needs the advertised single body byte', () async {
+    expect(await probeStreamResponse(), isTrue);
+    expect(await probeStreamResponse(body: const []), isFalse);
+    expect(await probeStreamResponse(body: const [], declaredLength: 0), isFalse);
+    expect(await probeStreamResponse(body: const [0x41, 0x42]), isFalse);
   });
 
   test('valid body does not override unsafe range or ETag headers', () async {
-    expect(await probeLocalResponse(contentRange: 'bytes 0-1/4096'), isFalse);
-    expect(await probeLocalResponse(etag: 'W/"v1"'), isFalse);
+    expect(await probeStreamResponse(contentRange: 'bytes 0-1/4096'), isFalse);
+    expect(await probeStreamResponse(etag: 'W/"v1"'), isFalse);
   });
 
   test('unsafe URL never triggers a preflight request', () async {
