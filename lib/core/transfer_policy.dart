@@ -1,5 +1,31 @@
 /// Pure, deterministic queue policy. Never bypasses the Android OS scheduler.
 class TransferPolicy {
+  /// Limit concurrent in-app direct transfers per host, regardless of scheme
+  /// or port. Scheduled Android jobs remain owned by WorkManager.
+  static String? directHost(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return null;
+    }
+    final host = uri.host.toLowerCase();
+    return host.endsWith('.') ? host.substring(0, host.length - 1) : host;
+  }
+
+  static void countDirectHost(String url, Map<String, int> counts) {
+    final host = directHost(url);
+    if (host == null) return;
+    counts[host] = (counts[host] ?? 0) + 1;
+  }
+
+  static bool mayStartDirectHost(String url, Map<String, int> counts,
+      {int maxPerHost = 2}) {
+    final host = directHost(url);
+    return host != null && maxPerHost > 0 &&
+        (counts[host] ?? 0) < maxPerHost;
+  }
+
   static bool mayStart({required bool wifiOnly, required bool hasWifi,
     required bool hasNetwork, required int batteryPercent,
     required bool charging, required int batteryFloor,

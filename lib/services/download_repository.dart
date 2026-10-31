@@ -568,7 +568,13 @@ class DownloadRepository extends ChangeNotifier {
         (x.scheduledAt == 0 || x.scheduledAt <= now) &&
         (x.retryAt == 0 || x.retryAt <= now)).toList()
         ..sort((a,b) => a.priority.compareTo(b.priority));
-      var activeDirect = _items.where((x) => x.kind == 'direct' && (x.nativeQueued || x.status == 'submitting')).length;
+      final activeDirectEntries = _items.where((x) =>
+          x.kind == 'direct' && (x.nativeQueued || x.status == 'submitting'));
+      var activeDirect = activeDirectEntries.length;
+      final activeByHost = <String, int>{};
+      for (final active in activeDirectEntries) {
+        TransferPolicy.countDirectHost(active.url, activeByHost);
+      }
       var mediaActive = _items.any((x) => x.kind != 'direct' && {'running','submitting'}.contains(x.status));
       // Best-effort soft app quota. Does not interrupt an already-running transfer.
       if (storageLimitMb > 0 &&
@@ -581,9 +587,16 @@ class DownloadRepository extends ChangeNotifier {
         // fallback queue as well when the user opted into charging-only.
         if (item.kind == 'direct' && chargingOnly && !_isCharging) continue;
         if (item.kind == 'direct' && activeDirect >= maxConcurrent) continue;
+        if (item.kind == 'direct' &&
+            !TransferPolicy.mayStartDirectHost(item.url, activeByHost)) continue;
         if (item.kind != 'direct' && mediaActive) continue;
         item.autoQueue = false; item.status = 'submitting'; item.retryAt = 0;
-        if (item.kind == 'direct') activeDirect++; else mediaActive = true;
+        if (item.kind == 'direct') {
+          activeDirect++;
+          TransferPolicy.countDirectHost(item.url, activeByHost);
+        } else {
+          mediaActive = true;
+        }
         // Do not await long media downloads while holding the queue lock.
         unawaited(start(item, userInitiated: _foregroundRequestIds.remove(item.id))
           .catchError((Object _) {}));
