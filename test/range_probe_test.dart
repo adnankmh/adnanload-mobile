@@ -19,6 +19,37 @@ bool safe({
   contentEncoding: contentEncoding,
 );
 
+/// Exercise the real HTTP response stream without weakening URLGuard's
+/// public-host restriction in supportsSafeParallelDownload.
+Future<bool> probeLocalResponse({
+  List<int> body = const [0x41],
+  int declaredLength = 1,
+  String contentRange = 'bytes 0-0/4096',
+  String etag = '"v1"',
+}) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  server.listen((request) async {
+    final reply = request.response;
+    reply.statusCode = HttpStatus.partialContent;
+    reply.headers.set('accept-ranges', 'bytes');
+    reply.headers.set('etag', etag);
+    reply.headers.set('content-range', contentRange);
+    reply.contentLength = declaredLength;
+    if (body.isNotEmpty) reply.add(body);
+    await reply.close();
+  });
+  final client = HttpClient();
+  try {
+    final request = await client.getUrl(
+      Uri.parse('http://127.0.0.1:${server.port}/probe'));
+    final response = await request.close();
+    return await RangeProbe.verifyProbeResponse(response);
+  } finally {
+    client.close(force: true);
+    await server.close(force: true);
+  }
+}
+
 void main() {
   test('strong ETag and exact one-byte range permit parallel transfer', () {
     expect(safe(), isTrue);
@@ -60,6 +91,16 @@ void main() {
     expect(safe(contentEncoding: 'gzip'), isFalse);
     expect(safe(contentEncoding: 'br'), isFalse);
     expect(safe(contentEncoding: 'identity'), isTrue);
+  });
+
+  test('real HTTP 206 response needs the advertised single body byte', () async {
+    expect(await probeLocalResponse(), isTrue);
+    expect(await probeLocalResponse(body: const [], declaredLength: 0), isFalse);
+  });
+
+  test('valid body does not override unsafe range or ETag headers', () async {
+    expect(await probeLocalResponse(contentRange: 'bytes 0-1/4096'), isFalse);
+    expect(await probeLocalResponse(etag: 'W/"v1"'), isFalse);
   });
 
   test('unsafe URL never triggers a preflight request', () async {
