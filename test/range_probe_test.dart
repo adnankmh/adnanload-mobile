@@ -36,7 +36,7 @@ Future<bool> probeLocalResponse({
     reply.headers.set('content-range', contentRange);
     reply.contentLength = declaredLength;
     if (body.isNotEmpty) reply.add(body);
-    await reply.close();
+    try { await reply.close(); } catch (_) { /* intentional truncated test response */ }
   });
   final client = HttpClient();
   try {
@@ -95,6 +95,7 @@ void main() {
 
   test('real HTTP 206 response needs the advertised single body byte', () async {
     expect(await probeLocalResponse(), isTrue);
+    expect(await probeLocalResponse(body: const []), isFalse);
     expect(await probeLocalResponse(body: const [], declaredLength: 0), isFalse);
   });
 
