@@ -38,6 +38,34 @@ class RangeProbe {
     return total != null && total > 1;
   }
 
+  /// A server can advertise a valid one-byte range while returning no body.
+  /// Read exactly one byte before enabling segmented downloads; malformed,
+  /// truncated or stalled responses must use the single-stream fallback.
+  static Future<bool> verifyProbeResponse(HttpClientResponse response) async {
+    if (!supportsParallelResponse(
+      statusCode: response.statusCode,
+      acceptRanges: response.headers.value('accept-ranges'),
+      etag: response.headers.value('etag'),
+      contentRange: response.headers.value('content-range'),
+      contentLength: response.contentLength,
+      contentEncoding: response.headers.value('content-encoding'),
+    )) {
+      return false;
+    }
+    try {
+      final count = await response.fold<int>(0, (count, bytes) {
+        final next = count + bytes.length;
+        if (next > 1) {
+          throw const FormatException('Range probe body exceeds one byte');
+        }
+        return next;
+      }).timeout(const Duration(seconds: 9));
+      return count == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Probe only validated public HTTP(S) URLs; never follow probe redirects.
   /// This does not change the native downloader's own retry/resume handling.
   static Future<bool> supportsSafeParallelDownload(Uri url) async {
@@ -53,14 +81,7 @@ class RangeProbe {
       request.headers.set('accept-encoding', 'identity');
       final response = await request.close()
           .timeout(const Duration(seconds: 9));
-      return supportsParallelResponse(
-        statusCode: response.statusCode,
-        acceptRanges: response.headers.value('accept-ranges'),
-        etag: response.headers.value('etag'),
-        contentRange: response.headers.value('content-range'),
-        contentLength: response.contentLength,
-        contentEncoding: response.headers.value('content-encoding'),
-      );
+      return await verifyProbeResponse(response);
     } catch (_) {
       return false;
     } finally {
