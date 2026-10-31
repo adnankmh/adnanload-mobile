@@ -44,6 +44,37 @@ class TransferPolicy {
     return true;
   }
 
+  /// Reconcile persisted direct-transfer metadata with Android's native task
+  /// database after a process restart. Never create a second native task when
+  /// the UI snapshot was saved before the enqueue callback completed.
+  static void reconcileRestoredDirect(DownloadEntry item,
+      {required bool nativeTaskExists}) {
+    if (item.kind != 'direct' || item.scheduledExternally ||
+        !const {'running', 'submitting', 'waiting', 'paused'}
+            .contains(item.status)) {
+      return;
+    }
+    if (nativeTaskExists) {
+      item.nativeQueued = true;
+      item.autoQueue = false;
+      if (item.status == 'submitting') item.status = 'waiting';
+      return;
+    }
+    if (item.nativeQueued || item.status == 'running') {
+      // A missing native task is not proof that a partial file is reusable.
+      // Require an explicit retry instead of silently restarting the transfer.
+      item.nativeQueued = false;
+      item.autoQueue = false;
+      item.status = 'error';
+      item.error = 'nativeMissing';
+    } else if (item.status == 'submitting') {
+      // Preserve the previous safe recovery behavior when no native task was
+      // ever registered: the original queued request may be submitted.
+      item.status = 'waiting';
+      item.autoQueue = true;
+    }
+  }
+
   static bool mayStart({required bool wifiOnly, required bool hasWifi,
     required bool hasNetwork, required int batteryPercent,
     required bool charging, required int batteryFloor,
