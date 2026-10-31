@@ -7,12 +7,18 @@ import '../models/download_entry.dart';
 class StorageAudit {
   static Future<List<List<DownloadEntry>>> findDuplicates(List<DownloadEntry> entries) async {
     final lengths = <int, List<DownloadEntry>>{};
+    // Multiple history records can reference the same downloaded file.
+    // A duplicate must represent a second, distinct file on disk.
+    final visitedPaths = <String>{};
     for (final item in entries) {
       if (item.status != 'complete' || item.isPlaylist || item.path.isEmpty) continue;
       final f = File(item.path);
+      if (!visitedPaths.add(f.absolute.path)) continue;
       try {
         if (await f.exists()) {
           final len = await f.length();
+          // Empty files are not valid completed downloads.
+          if (len == 0) continue;
           (lengths[len] ??= <DownloadEntry>[]).add(item);
         }
       } on FileSystemException { /* inaccessible file: skip */ }
