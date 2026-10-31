@@ -19,6 +19,10 @@ bool safe({
   contentEncoding: contentEncoding,
 );
 
+// Flutter's test binding replaces HttpClient with a fake network client.
+// Use the real dart:io implementation only inside the loopback test zone.
+class _RealLoopbackHttpOverrides extends HttpOverrides {}
+
 /// Exercise the real HTTP response stream without weakening URLGuard's
 /// public-host restriction in supportsSafeParallelDownload.
 Future<bool> probeLocalResponse({
@@ -26,7 +30,7 @@ Future<bool> probeLocalResponse({
   int declaredLength = 1,
   String contentRange = 'bytes 0-0/4096',
   String etag = '"v1"',
-}) async {
+}) => HttpOverrides.runWithHttpOverrides(() async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
     final reply = request.response;
@@ -48,7 +52,7 @@ Future<bool> probeLocalResponse({
     client.close(force: true);
     await server.close(force: true);
   }
-}
+}, _RealLoopbackHttpOverrides());
 
 void main() {
   test('strong ETag and exact one-byte range permit parallel transfer', () {
