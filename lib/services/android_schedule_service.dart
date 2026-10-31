@@ -79,6 +79,7 @@ class AndroidScheduleService {
     required String name,
     required DateTime when,
     required bool wifiOnly,
+    required bool chargingOnly,
     required int priority,
   }) async {
     if (!Platform.isAndroid || !initialized) return false;
@@ -92,7 +93,8 @@ class AndroidScheduleService {
         existingWorkPolicy: ExistingWorkPolicy.keep,
         initialDelay: delay,
         constraints: Constraints(networkType:
-            wifiOnly ? NetworkType.unmetered : NetworkType.connected),
+            wifiOnly ? NetworkType.unmetered : NetworkType.connected,
+            requiresCharging: chargingOnly),
         inputData: {
           'id': id,
           'url': url,
