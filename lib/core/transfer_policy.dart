@@ -2,8 +2,10 @@
 class TransferPolicy {
   static bool mayStart({required bool wifiOnly, required bool hasWifi,
     required bool hasNetwork, required int batteryPercent,
-    required bool charging, required int batteryFloor}) {
+    required bool charging, required int batteryFloor,
+    bool chargingOnly = false}) {
     if (!hasNetwork || (wifiOnly && !hasWifi)) return false;
+    if (chargingOnly && !charging) return false;
     if (batteryFloor <= 0 || charging) return true;
     return batteryPercent >= batteryFloor;
   }

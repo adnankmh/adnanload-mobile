@@ -12,6 +12,18 @@ void main() {
     expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:false,
       batteryPercent:100,charging:true,batteryFloor:0),isFalse);
   });
+  test('Charging-only gates new jobs even above battery threshold', () {
+    expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:true,
+      batteryPercent:100,charging:false,batteryFloor:0,chargingOnly:true),isFalse);
+    expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:true,
+      batteryPercent:5,charging:true,batteryFloor:40,chargingOnly:true),isTrue);
+    expect(TransferPolicy.mayStart(wifiOnly:true,hasWifi:false,hasNetwork:true,
+      batteryPercent:100,charging:true,batteryFloor:0,chargingOnly:true),isFalse);
+    expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:false,
+      batteryPercent:100,charging:true,batteryFloor:0,chargingOnly:true),isFalse);
+    expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:true,
+      batteryPercent:100,charging:false,batteryFloor:0),isTrue);
+  });
   test('Battery threshold is waived when charging', () {
     expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:true,
       batteryPercent:10,charging:false,batteryFloor:25),isFalse);

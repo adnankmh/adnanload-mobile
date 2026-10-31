@@ -46,7 +46,7 @@ class DownloadRepository extends ChangeNotifier {
   DateTime? _lastNetworkProbe;
   List<ConnectivityResult> _networkTypes = const [ConnectivityResult.none];
   int _batteryPercent = 100;
-  bool _isCharging = true;
+  bool _isCharging = false; // Unknown charging state must not bypass opt-in gate.
   int crashCount = 0;
   bool automaticRetry = true;
   int batteryFloor = 0;
@@ -65,6 +65,7 @@ class DownloadRepository extends ChangeNotifier {
   Future<bool>? _mediaInitFuture;
   bool _notificationsAsked = false;
   bool wifiOnly = false;
+  bool chargingOnly = false;
   bool notifications = true;
   bool autoOpenSafeFiles = false;
   bool autoStartSharedLinks = false;
@@ -86,6 +87,7 @@ class DownloadRepository extends ChangeNotifier {
     if (!const {'dark', 'light', 'gold'}.contains(theme)) theme = 'dark';
     language = _prefs!.getString('language') ?? 'ar';
     wifiOnly = _prefs!.getBool('wifiOnly') ?? false;
+    chargingOnly = _prefs!.getBool('chargingOnly') ?? false;
     batteryFloor = _prefs!.getInt('batteryFloor') ?? 0;
     if (!const {0, 15, 25, 40}.contains(batteryFloor)) batteryFloor = 0;
     automaticRetry = _prefs!.getBool('automaticRetry') ?? true;
@@ -230,7 +232,7 @@ class DownloadRepository extends ChangeNotifier {
     wifiOnly: wifiOnly, hasWifi: _networkTypes.contains(ConnectivityResult.wifi),
     hasNetwork: !_networkTypes.contains(ConnectivityResult.none) && _networkTypes.isNotEmpty,
     batteryPercent: _batteryPercent, charging: _isCharging,
-    batteryFloor: batteryFloor,
+    batteryFloor: batteryFloor, chargingOnly: chargingOnly,
   );
 
   String get networkDescription {
@@ -248,7 +250,7 @@ class DownloadRepository extends ChangeNotifier {
       'Waiting: ${m.waiting} · Failed: ${m.failed} · Retrying: ${m.retrying}\n'
       'Recorded crash events: $crashCount\n'
       'Network: $networkDescription · Battery: $_batteryPercent%\n'
-      'Wi-Fi only: $wifiOnly · Battery floor: $batteryFloor%\n'
+      'Wi-Fi only: $wifiOnly · Charging only: $chargingOnly · Battery floor: $batteryFloor%\n'
       'Last local events (without file names or URLs):\n${_diagnosticEvents.join('\n')}';
   }
 
@@ -487,7 +489,8 @@ class DownloadRepository extends ChangeNotifier {
         schedule.isAfter(DateTime.now())) {
       final registered = await AndroidScheduleService.register(
         id: item.id, url: item.url, name: item.name, when: schedule,
-        wifiOnly: wifiOnly, priority: item.priority,
+        wifiOnly: wifiOnly, chargingOnly: chargingOnly,
+         priority: item.priority,
       );
       if (registered) {
         item.scheduledExternally = true;
@@ -573,6 +576,9 @@ class DownloadRepository extends ChangeNotifier {
         // The network/battery preflight is required for on-device media tasks.
         // Direct tasks already have an OS-managed Wi-Fi constraint.
         if (item.kind != 'direct' && !mediaPolicyReady) continue;
+        // WorkManager handles future scheduled direct jobs; gate the local
+        // fallback queue as well when the user opted into charging-only.
+        if (item.kind == 'direct' && chargingOnly && !_isCharging) continue;
         if (item.kind == 'direct' && activeDirect >= maxConcurrent) continue;
         if (item.kind != 'direct' && mediaActive) continue;
         item.autoQueue = false; item.status = 'submitting'; item.retryAt = 0;
@@ -806,13 +812,15 @@ class DownloadRepository extends ChangeNotifier {
 
   void updateSettings({String? newTheme, String? newLanguage, bool? newWifiOnly,
     bool? newAutoOpenSafeFiles, bool? newAutoStartSharedLinks, bool? newNotifications, bool? newAutoUpdateMediaEngine, int? newMaxConcurrent, int? newParallelChunks, double? newFontScale,
-    int? newBatteryFloor, bool? newAutomaticRetry, int? newStorageLimitMb}) {
+    int? newBatteryFloor, bool? newAutomaticRetry, int? newStorageLimitMb,
+     bool? newChargingOnly}) {
     if(newStorageLimitMb != null){
       storageLimitMb = newStorageLimitMb.clamp(0,102400).toInt();
     }
     if (newTheme != null && const {'dark','light','gold'}.contains(newTheme)) theme = newTheme;
     if (newLanguage != null) language = newLanguage;
     if (newWifiOnly != null) wifiOnly = newWifiOnly;
+    if (newChargingOnly != null) chargingOnly = newChargingOnly;
     if (newNotifications != null) notifications = newNotifications;
     if (newAutoOpenSafeFiles != null) autoOpenSafeFiles = newAutoOpenSafeFiles;
     if (newAutoStartSharedLinks != null) autoStartSharedLinks = newAutoStartSharedLinks;
@@ -825,6 +833,7 @@ class DownloadRepository extends ChangeNotifier {
     _prefs?.setString('theme',theme);
     _prefs?.setString('language',language);
     _prefs?.setBool('wifiOnly',wifiOnly);
+    _prefs?.setBool('chargingOnly',chargingOnly);
     _prefs?.setBool('notifications',notifications);
     _prefs?.setBool('autoOpenSafeFiles',autoOpenSafeFiles);
     _prefs?.setBool('autoStartSharedLinks',autoStartSharedLinks);
