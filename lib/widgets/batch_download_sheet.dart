@@ -2,9 +2,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
 import '../core/batch_links.dart';
+import '../core/batch_link_preview.dart';
 import '../core/batch_csv_import.dart';
 import '../core/batch_text_import.dart';
-import '../core/smart_link.dart';
 import '../services/download_repository.dart';
 
 class BatchDownloadSheet extends StatefulWidget {
@@ -59,6 +59,8 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
     final t=widget.strings.t;
     final unique=BatchLinks.parse(controller.text,
       existing:widget.repo.items.map((e)=>e.url).toSet());
+    final previews = unique.map((url) =>
+      BatchLinkPreview.fromUrl(url, preferred: mode)).toList();
     return SafeArea(child:Padding(padding:EdgeInsets.only(
       left:18,right:18,top:12,bottom:MediaQuery.viewInsetsOf(context).bottom+18),
       child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,
@@ -83,6 +85,26 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
               ChoiceChip(label:Text(t(entry.$2)), selected:mode==entry.$1,
                 onSelected:busy?null:(_)=>setState(()=>mode=entry.$1)),
           ]),
+          if (previews.isNotEmpty) ExpansionTile(
+            title: Text(t('batchPreview')),
+            subtitle: Text(t('batchPreviewHint')),
+            children: [
+              for (final item in previews)
+                ListTile(
+                  dense: true,
+                  leading: Icon(item.kind == 'mp3'
+                      ? Icons.music_note_rounded
+                      : item.kind == 'video'
+                          ? Icons.movie_rounded
+                          : Icons.insert_drive_file_rounded),
+                  title: Text(item.suggestedName ?? t('batchNameUnknown'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    textDirection: TextDirection.ltr),
+                  subtitle: Text('${t(item.kind)} · ${item.host}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+          ),
           SwitchListTile(title:Text(t('batchLater')),value:later,
             onChanged:busy?null:(v)=>setState(()=>later=v)),
           const SizedBox(height:10),FilledButton.icon(
@@ -92,11 +114,10 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
               setState(()=>busy=true);
               try {
                 var count=0;
-                for(final url in unique){
-                  final type=SmartLink.kind(url, preferred:mode);
-                  await widget.repo.enqueue(url:url,name:'',
-                    kind:type=='playlist'?'video':type,
-                    playlist:type=='playlist',priority:8,startNow:!later);
+                for(final item in previews){
+                  await widget.repo.enqueue(url:item.url,name:'',
+                    kind:item.kind,
+                    playlist:item.isPlaylist,priority:8,startNow:!later);
                   count++;
                 }
                 if(context.mounted){Navigator.pop(context);ScaffoldMessenger.of(context).showSnackBar(
