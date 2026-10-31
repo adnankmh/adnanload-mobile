@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:adnanload_mobile/core/url_guard.dart';
 
@@ -47,5 +48,48 @@ void main() {
   });
   test('sanitizes path characters', () {
     expect(UrlGuard.safeName('bad/a\\b:*.mp4'), 'bad_a_b__.mp4');
+  });
+
+  test('long ASCII filenames retain their original short extension', () {
+    final longName = List.filled(180, 'a').join() + '.mp4';
+    final safe = UrlGuard.safeName(longName);
+    expect(safe, List.filled(156, 'a').join() + '.mp4');
+    expect(safe.length, lessThanOrEqualTo(160));
+  });
+
+  test('long Arabic filenames stay within filesystem byte limits', () {
+    final longName = List.filled(160, 'ت').join() + '.pdf';
+    final safe = UrlGuard.safeName(longName);
+    expect(safe.endsWith('.pdf'), isTrue);
+    expect(utf8.encode(safe).length, lessThanOrEqualTo(240));
+    expect(safe, List.filled(118, 'ت').join() + '.pdf');
+  });
+
+  test('emoji truncation never cuts a UTF-16 surrogate pair', () {
+    final longName = List.filled(100, '😀').join() + '.zip';
+    final safe = UrlGuard.safeName(longName);
+    expect(safe, List.filled(59, '😀').join() + '.zip');
+    expect(utf8.encode(safe).length, lessThanOrEqualTo(240));
+    expect(safe.runes.contains(0xFFFD), isFalse);
+  });
+
+  test('Windows device names are safe even with extensions', () {
+    for (final name in ['CON', 'PRN.txt', 'AUX.log', 'NUL',
+                        'COM3.mp4', 'COM9', 'LPT3.txt', 'LPT9']) {
+      expect(UrlGuard.safeName(name).startsWith('_'), isTrue, reason: name);
+    }
+    expect(UrlGuard.safeName('COM0.txt'), 'COM0.txt');
+    expect(UrlGuard.safeName('report.txt'), 'report.txt');
+  });
+
+  test('bidirectional formatting cannot disguise a file extension', () {
+    expect(UrlGuard.safeName('photo\u202Egpj.exe'), 'photogpj.exe');
+    expect(UrlGuard.safeName('file\u2066name\u2069.pdf'), 'filename.pdf');
+  });
+
+  test('URL filename extraction also preserves long extensions', () {
+    final longPath = List.filled(180, 'b').join() + '.pdf';
+    final safe = UrlGuard.nameFromUrl('https://example.org/' + longPath);
+    expect(safe, List.filled(156, 'b').join() + '.pdf');
   });
 }
