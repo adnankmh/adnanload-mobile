@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class UrlGuard {
   static Uri? validate(String input) {
     Uri? uri = Uri.tryParse(input.trim());
@@ -40,12 +42,56 @@ class UrlGuard {
     return safeName(last.isEmpty ? 'download.bin' : last);
   }
 
+  /// Keep download names safe for Android storage and shared desktop exports.
+  ///
+  /// Preserve short extensions while respecting both UTF-16 and UTF-8 limits.
+  /// Never split a surrogate pair or leave a misleading bidirectional marker.
   static String safeName(String name) {
-    final cleaned = name.replaceAll(RegExp(r'[\\/<>:"|?*\x00-\x1F]'), '_')
-        .replaceAll(RegExp(r'\s+'), ' ').trim().replaceAll(RegExp(r'[. ]+$'), '');
-    final forbidden = {'CON','PRN','AUX','NUL','COM1','COM2','LPT1','LPT2'};
-    final base = cleaned.split('.').first.toUpperCase();
-    if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') return 'download.bin';
-    return '${forbidden.contains(base) ? '_' : ''}${cleaned.length > 160 ? cleaned.substring(0, 160) : cleaned}';
+    final cleaned = name
+        .replaceAll(RegExp(r'[\\/<>:"|?*\x00-\x1F\x7F]'), '_')
+        .replaceAll(RegExp(r'[\u200E\u200F\u202A-\u202E\u2066-\u2069]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'[. ]+$'), '');
+    if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
+      return 'download.bin';
+    }
+
+    // Windows treats these as devices even with an extension. Shared files
+    // must remain portable, including COM3-COM9 and LPT3-LPT9.
+    final reserved = RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$',
+        caseSensitive: false);
+    final normalized = reserved.hasMatch(cleaned.split('.').first)
+        ? '_' + cleaned
+        : cleaned;
+
+    const maxCodeUnits = 160;
+    const maxUtf8Bytes = 240; // below common 255-byte filesystem limits
+    final dot = normalized.lastIndexOf('.');
+    final extension = dot > 0 && normalized.length - dot <= 20
+        ? normalized.substring(dot)
+        : '';
+    final originalStem = extension.isEmpty
+        ? normalized
+        : normalized.substring(0, dot);
+    final stemUnitLimit = maxCodeUnits - extension.length;
+    final stemByteLimit = maxUtf8Bytes - utf8.encode(extension).length;
+
+    final result = StringBuffer();
+    var units = 0;
+    var bytes = 0;
+    for (final rune in originalStem.runes) {
+      final character = String.fromCharCode(rune);
+      final encodedLength = utf8.encode(character).length;
+      if (units + character.length > stemUnitLimit ||
+          bytes + encodedLength > stemByteLimit) {
+        break;
+      }
+      result.write(character);
+      units += character.length;
+      bytes += encodedLength;
+    }
+    final stem = result.toString().replaceAll(RegExp(r'[. ]+$'), '');
+    return (stem.isEmpty ? 'download' : stem) + extension;
   }
 }
