@@ -45,6 +45,33 @@ void main() {
         throwsFormatException);
   });
 
+  test('detects second-column URLs in headerless CSV', () {
+    const csv = 'First,https://example.org/a.zip\n'
+        'Second,https://example.org/b.pdf\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
+      'https://example.org/a.zip',
+      'https://example.org/b.pdf',
+    ]);
+  });
+
+  test('detects unknown URL heading and skips the heading row', () {
+    const csv = 'Description,Download address,Notes\n'
+        'One,https://example.org/one.zip,first\n'
+        'Two,https://example.org/two.zip,second\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
+      'https://example.org/one.zip',
+      'https://example.org/two.zip',
+    ]);
+  });
+
+  test('keeps first URL column on ties and applies URL safety checks', () {
+    const csv = 'http://127.1/admin,https://example.org/alternate\n'
+        'https://example.org/safe.zip,https://example.org/other.zip\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
+      'https://example.org/safe.zip',
+    ]);
+  });
+
   test('accepts UTF-8 BOM and Arabic URL column header', () {
     final bytes = <int>[0xEF, 0xBB, 0xBF,
       ...utf8.encode('العنوان,الرابط\nملف,https://example.org/a.pdf\n')];

@@ -60,8 +60,29 @@ class BatchCsvImport {
         headers.contains(cell.trim().toLowerCase().replaceAll(
           RegExp(r'[\s_-]+'), '',
         )));
-    final column = headerIndex < 0 ? 0 : headerIndex;
-    final start = headerIndex < 0 ? 0 : 1;
+    var column = headerIndex < 0 ? 0 : headerIndex;
+    var start = headerIndex < 0 ? 0 : 1;
+    if (headerIndex < 0) {
+      // Headerless CSVs may put the URL after a title or description.
+      // Only infer the column here; BatchLinks/UrlGuard still validate every URL.
+      final sample = rows.take(12).toList();
+      final width = sample.fold<int>(0, (max, values) =>
+          values.length > max ? values.length : max);
+      var bestCount = 0;
+      for (var index = 0; index < width; index++) {
+        final count = sample.where((values) =>
+            index < values.length && _looksLikeHttpUrl(values[index])).length;
+        if (count > bestCount) {
+          bestCount = count;
+          column = index;
+        }
+      }
+      // Skip an unrecognized heading row without losing headerless first links.
+      if (bestCount > 0 &&
+          (column >= first.length || !_looksLikeHttpUrl(first[column]))) {
+        start = 1;
+      }
+    }
     final urls = <String>[];
     for (final values in rows.skip(start)) {
       if (column < values.length && values[column].trim().isNotEmpty) {
@@ -69,5 +90,11 @@ class BatchCsvImport {
       }
     }
     return urls.join('\n');
+  }
+
+  static bool _looksLikeHttpUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    return uri != null && uri.hasAuthority && uri.host.isNotEmpty &&
+        (uri.scheme == 'http' || uri.scheme == 'https');
   }
 }
