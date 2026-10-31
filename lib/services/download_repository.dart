@@ -762,8 +762,11 @@ class DownloadRepository extends ChangeNotifier {
     final task = await bd.FileDownloader().taskForId(item.id);
     if (task is bd.DownloadTask) {
       await bd.FileDownloader().resume(task);
-    } else if (item.status == 'waiting' || item.status == 'paused') {
-      item.autoQueue = true; unawaited(_pump());
+    } else if (TransferPolicy.requeueDeferredDirect(item)) {
+      // A locally paused item must become waiting before the queue can see it.
+      // Do not recreate missing native jobs: those require explicit retry.
+      notifyListeners(); _persistSoon();
+      unawaited(_pump());
     }
   }
 
