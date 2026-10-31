@@ -1,0 +1,71 @@
+import 'dart:io';
+
+import 'url_guard.dart';
+
+/// Conservative preflight for native parallel downloads.
+///
+/// A one-byte 206 response alone is not sufficient evidence that a server can
+/// safely serve independent byte ranges of the same immutable representation.
+/// On uncertainty, use the native downloader's single-stream fallback.
+class RangeProbe {
+  RangeProbe._();
+
+  static final RegExp _contentRange =
+      RegExp(r'^bytes 0-0/([1-9][0-9]*)$');
+  static final RegExp _strongEtag =
+      RegExp(r'^"[^"\r\n]+"$');
+
+  /// Pure header check so malformed and incomplete responses can be tested.
+  static bool supportsParallelResponse({
+    required int statusCode,
+    required String? acceptRanges,
+    required String? etag,
+    required String? contentRange,
+    required int contentLength,
+    String? contentEncoding,
+  }) {
+    if (statusCode != HttpStatus.partialContent || contentLength != 1) {
+      return false;
+    }
+    if (acceptRanges?.trim().toLowerCase() != 'bytes') return false;
+    if (etag == null || !_strongEtag.hasMatch(etag.trim())) return false;
+    final encoding = contentEncoding?.trim().toLowerCase();
+    if (encoding != null && encoding.isNotEmpty && encoding != 'identity') {
+      return false;
+    }
+    final match = _contentRange.firstMatch(contentRange?.trim() ?? '');
+    final total = int.tryParse(match?.group(1) ?? '');
+    return total != null && total > 1;
+  }
+
+  /// Probe only validated public HTTP(S) URLs; never follow probe redirects.
+  /// This does not change the native downloader's own retry/resume handling.
+  static Future<bool> supportsSafeParallelDownload(Uri url) async {
+    if (UrlGuard.validate(url.toString()) == null) return false;
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 8)
+      ..autoUncompress = false;
+    try {
+      final request = await client.getUrl(url)
+          .timeout(const Duration(seconds: 9));
+      request.followRedirects = false;
+      request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
+      request.headers.set('accept-encoding', 'identity');
+      final response = await request.close()
+          .timeout(const Duration(seconds: 9));
+      return supportsParallelResponse(
+        statusCode: response.statusCode,
+        acceptRanges: response.headers.value('accept-ranges'),
+        etag: response.headers.value('etag'),
+        contentRange: response.headers.value('content-range'),
+        contentLength: response.contentLength,
+        contentEncoding: response.headers.value('content-encoding'),
+      );
+    } catch (_) {
+      return false;
+    } finally {
+      // Never drain an untrusted response body of unbounded size.
+      client.close(force: true);
+    }
+  }
+}

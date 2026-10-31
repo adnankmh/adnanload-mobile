@@ -19,6 +19,7 @@ import '../core/smart_link.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../core/transfer_policy.dart';
+import '../core/range_probe.dart';
 import '../core/download_metrics.dart';
 import 'privacy_lock.dart';
 import 'backup_service.dart';
@@ -594,22 +595,6 @@ class DownloadRepository extends ChangeNotifier {
     }
   }
 
-  Future<bool> _acceptsRanges(Uri url) async {
-    // Probe a single byte and fall back to one connection on any uncertainty.
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
-    try {
-      final req = await client.getUrl(url).timeout(const Duration(seconds: 9));
-      req.followRedirects = false; // do not probe arbitrary redirect hosts
-      req.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
-      final response = await req.close().timeout(const Duration(seconds: 9));
-      final okay = response.statusCode == HttpStatus.partialContent &&
-        (response.headers.value(HttpHeaders.contentRangeHeader) ?? '').startsWith('bytes 0-0/');
-      await response.drain<void>();
-      return okay;
-    } catch (_) { return false; }
-    finally { client.close(force: true); }
-  }
-
   Future<void> start(DownloadEntry item, {bool userInitiated = false}) async {
     if (!_items.contains(item) || item.status == 'canceled' || item.status == 'complete') return;
     if (UrlGuard.validate(item.url) == null) throw const FormatException('Unsafe URL');
@@ -630,7 +615,7 @@ class DownloadRepository extends ChangeNotifier {
       await _ensureNotificationPermission();
       item.status = 'submitting';
       notifyListeners();
-      final chunks = parallelChunks > 1 && await _acceptsRanges(Uri.parse(item.url))
+      final chunks = parallelChunks > 1 && await RangeProbe.supportsSafeParallelDownload(Uri.parse(item.url))
           ? parallelChunks : 1;
       final task = bd.ParallelDownloadTask(
         taskId: item.id, url: item.url, filename: item.name,
