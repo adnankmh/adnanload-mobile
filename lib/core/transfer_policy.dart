@@ -1,4 +1,6 @@
-/// Pure, deterministic queue policy. Never bypasses the Android OS scheduler.
+import '../models/download_entry.dart';
+
+/// Deterministic queue policy. Never bypasses the Android OS scheduler.
 class TransferPolicy {
   /// Limit concurrent in-app direct transfers per host, regardless of scheme
   /// or port. Scheduled Android jobs remain owned by WorkManager.
@@ -24,6 +26,22 @@ class TransferPolicy {
     final host = directHost(url);
     return host != null && maxPerHost > 0 &&
         (counts[host] ?? 0) < maxPerHost;
+  }
+
+  /// Explicitly resume a locally deferred direct job. Native Android tasks
+  /// must be resumed through FileDownloader instead of being re-enqueued.
+  /// A manual resume also overrides a future in-app fallback schedule.
+  static bool requeueDeferredDirect(DownloadEntry item) {
+    if (item.kind != 'direct' || item.nativeQueued ||
+        item.scheduledExternally ||
+        !const {'paused', 'waiting'}.contains(item.status)) {
+      return false;
+    }
+    item.status = 'waiting';
+    item.autoQueue = true;
+    item.retryAt = 0;
+    item.scheduledAt = 0;
+    return true;
   }
 
   static bool mayStart({required bool wifiOnly, required bool hasWifi,
