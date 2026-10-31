@@ -42,7 +42,9 @@ Future<bool> probeLocalResponse({
     if (body.isNotEmpty) reply.add(body);
     try { await reply.close(); } catch (_) { /* intentional truncated test response */ }
   });
-  final client = HttpClient();
+  final client = HttpClient()
+    // Never route loopback regression tests through runner HTTP proxies.
+    ..findProxy = (_) => 'DIRECT';
   try {
     final request = await client.getUrl(
       Uri.parse('http://127.0.0.1:${server.port}/probe'));
