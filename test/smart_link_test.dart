@@ -8,6 +8,16 @@ void main() {
   expect(SmartLink.kind('https://www.youtube.com/playlist?list=PL123456'), 'playlist');
   expect(SmartLink.kind('https://example.com/archive.zip', preferred:'video'),'direct');
  });
+ test('incoming media pages are extracted; direct files stay direct', () {
+  expect(SmartLink.incomingKind('https://youtu.be/abc123'), 'video');
+  expect(SmartLink.incomingKind('https://www.youtube.com/watch?v=abc123'), 'video');
+  expect(SmartLink.incomingKind('https://www.youtube.com/playlist?list=PL123'), 'video');
+  expect(SmartLink.incomingKind('https://www.instagram.com/reel/abc123/'), 'video');
+  expect(SmartLink.incomingKind('https://example.com/book.pdf'), 'direct');
+  expect(SmartLink.incomingKind('https://example.com/photo.jpg'), 'direct');
+  expect(SmartLink.incomingKind('https://youtu.be/abc123', requested:'mp3'), 'mp3');
+  expect(SmartLink.incomingKind('https://youtube.com.evil.example/watch?v=abc'), 'direct');
+ });
  test('extension classification distinguishes file types', () {
   expect(SmartLink.category('photo.jpg'),'image');
   expect(SmartLink.category('setup.apk'),'application');

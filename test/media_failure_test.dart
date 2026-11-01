@@ -3,6 +3,8 @@ import 'package:adnanload_mobile/core/media_failure.dart';
 
 void main() {
   test('media failures classify without exposing secret URLs', () {
+    expect(MediaFailure.classify('Sign in to confirm you are not a bot'), 'mediaVerificationRequired');
+    expect(MediaFailure.classify('Unusual traffic, CAPTCHA required'), 'mediaVerificationRequired');
     expect(MediaFailure.classify('HTTP Error 403: Forbidden https://example.com/?token=SECRET'),
       'mediaAccessDenied');
     expect(MediaFailure.classify('HTTP Error 429'), 'mediaRateLimited');

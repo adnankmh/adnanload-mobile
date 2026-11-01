@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/app_strings.dart';
 import '../core/url_guard.dart';
+import '../core/smart_link.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../services/download_repository.dart';
@@ -22,7 +23,8 @@ class NewDownloadSheet extends StatefulWidget {
 class _NewDownloadSheetState extends State<NewDownloadSheet> {
   late final TextEditingController url = TextEditingController(text:widget.initialUrl);
   late final TextEditingController filename = TextEditingController(text:UrlGuard.nameFromUrl(widget.initialUrl));
-  late String kind = widget.initialKind;
+  late String kind = SmartLink.incomingKind(widget.initialUrl, requested: widget.initialKind);
+  bool kindIsManual = false;
   late bool playlist = widget.initialKind == 'playlist' ||
       PlaylistRules.looksLikePlaylist(widget.initialUrl);
   String audioFormat = 'mp3';
@@ -47,6 +49,23 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
     if (playlist && kind == 'direct') kind = 'video';
     if (kind != 'direct' && widget.initialUrl.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _suggestName());
+    }
+  }
+
+  /// Detect typed and pasted media links without overriding manual format choice.
+  void _routeIncomingUrl() {
+    final candidate = url.text.trim();
+    final suggested = kindIsManual
+        ? kind
+        : SmartLink.incomingKind(candidate, requested: widget.initialKind);
+    final routed = suggested == 'playlist' ? 'video' : suggested;
+    final isPlaylist = PlaylistRules.looksLikePlaylist(candidate) && routed != 'direct';
+    if (routed != kind || isPlaylist != playlist) {
+      setState(() {
+        kind = routed;
+        playlist = isPlaylist;
+        preview = null;
+      });
     }
   }
 
@@ -99,6 +118,7 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
       setState(() => error = widget.strings.t('validUrl'));
       return;
     }
+    _routeIncomingUrl();
     try { if (playlist) { PlaylistRules.parseItems(positions.text);
       if (separatePlaylistItems) PlaylistSelection.expand(positions.text); } }
     on FormatException { setState(() => error = widget.strings.t('invalidPlaylistItems')); return; }
@@ -159,18 +179,18 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
           ]),
           const SizedBox(height:20),
           TextField(controller:url,textDirection:TextDirection.ltr,keyboardType:TextInputType.url,
+            onChanged:(_)=>_routeIncomingUrl(),
             decoration:InputDecoration(labelText:s.t('url'),suffixIcon: IconButton(
               tooltip:s.t('paste'),icon:const Icon(Icons.content_paste_rounded),
               onPressed:() async {
                 final data=await Clipboard.getData('text/plain');
-                if (data?.text != null) {url.text=data!.text!;
-                  setState((){playlist = PlaylistRules.looksLikePlaylist(url.text);
-                    if (kind == 'playlist') { kind = 'video'; filename.text = widget.strings.t('playlist'); }
-    if (playlist && kind == 'direct') kind = 'video';});
-                  await _suggestName();}
+                if (data?.text != null) {
+                   url.text=data!.text!;
+                   _routeIncomingUrl();
+                   await _suggestName();
+                 }
               },)),
-            onSubmitted:(_) {setState((){playlist=PlaylistRules.looksLikePlaylist(url.text);
-              if(playlist&&kind=='direct')kind='video';});_suggestName();},
+            onSubmitted:(_) { _routeIncomingUrl(); _suggestName(); },
           ),
           const SizedBox(height:12),
           SegmentedButton<String>(
@@ -180,7 +200,7 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
               ButtonSegment(value:'video',label:Text(s.t('video')),icon:const Icon(Icons.video_library_outlined)),
               ButtonSegment(value:'mp3',label:Text(s.t('mp3')),icon:const Icon(Icons.music_note_rounded)),
             ], selected:{kind}, onSelectionChanged:busy?null:(v){
-              setState((){kind=v.first; if(kind=='direct')playlist=false; userEditedName=false;
+              setState((){kind=v.first; kindIsManual=true; if(kind=='direct')playlist=false; userEditedName=false;
                 filename.text=UrlGuard.nameFromUrl(url.text);});
               _suggestName();
             }),
