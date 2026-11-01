@@ -29,6 +29,11 @@ class UrlGuard {
           // Special-use IPv4 networks are not public download endpoints.
           // Exclude documentation (TEST-NET), benchmarking and deprecated
           // 6to4 relay ranges; they must not enter the native download queue.
+          // 192.0.0.0/24 is IETF protocol-assignment space, except the
+          // globally reachable PCP/TURN anycast addresses .9 and .10.
+          // Reject the rest before passing URLs to Android's native engine.
+          (parts[0] == 192 && parts[1] == 0 && parts[2] == 0 &&
+              parts[3] != 9 && parts[3] != 10) ||
           (parts[0] == 192 && parts[1] == 0 && parts[2] == 2) ||
           (parts[0] == 192 && parts[1] == 88 && parts[2] == 99) ||
           (parts[0] == 198 && (parts[1] == 18 || parts[1] == 19)) ||

@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('blocks documentation, benchmark and deprecated relay IPv4 ranges', () {
     for (final address in [
+      '192.0.0.0', '192.0.0.1', '192.0.0.8',
+      '192.0.0.11', '192.0.0.170', '192.0.0.171', '192.0.0.255',
       '192.0.2.1', '192.0.2.255',
       '192.88.99.1',
       '198.18.0.1', '198.19.255.255',
@@ -19,7 +21,7 @@ void main() {
   });
 
   test('special-use addresses never enter batch or per-host queues', () {
-    const invalid = 'https://198.18.0.1/file.zip';
+    const invalid = 'https://192.0.0.170/file.zip';
     const valid = 'https://8.8.8.8/file.zip';
     expect(BatchLinks.parse('$invalid\n$valid'), [valid]);
     expect(TransferPolicy.directHost(invalid), isNull);
@@ -30,7 +32,11 @@ void main() {
   });
 
   test('ordinary public IPv4 downloads remain accepted', () {
-    for (final address in ['1.1.1.1', '8.8.8.8', '9.9.9.9', '198.20.0.1']) {
+    for (final address in [
+      '1.1.1.1', '8.8.8.8', '9.9.9.9', '198.20.0.1',
+      // These two protocol-assignment anycast addresses are globally reachable.
+      '192.0.0.9', '192.0.0.10',
+    ]) {
       final url = 'https://$address/file.zip';
       expect(UrlGuard.validate(url), isNotNull, reason: url);
     }
