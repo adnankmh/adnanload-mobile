@@ -3,6 +3,9 @@
 class MediaFailure {
   static String classify(String reason) {
     final text = reason.toLowerCase();
+    if (RegExp(r'(sign in to confirm|confirm you.re not a bot|unusual traffic|automated requests|captcha|verify you are human)').hasMatch(text)) {
+      return 'mediaVerificationRequired';
+    }
     if (RegExp(r'(http error 403|status code 403|forbidden|access denied|sign in|login required|age.restricted|private video)').hasMatch(text)) {
       return 'mediaAccessDenied';
     }
