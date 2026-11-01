@@ -12,15 +12,17 @@ class StorageAudit {
     final visitedPaths = <String>{};
     for (final item in entries) {
       if (item.status != 'complete' || item.isPlaylist || item.path.isEmpty) continue;
-      final f = File(item.path);
-      if (!visitedPaths.add(f.absolute.path)) continue;
+      final file = File(item.path);
       try {
-        if (await f.exists()) {
-          final len = await f.length();
-          // Empty files are not valid completed downloads.
-          if (len == 0) continue;
-          (lengths[len] ??= <DownloadEntry>[]).add(item);
-        }
+        if (!await file.exists()) continue;
+        // Distinct history paths may resolve to the same file through '..'
+        // segments or symlinks. Count the underlying file only once.
+        final canonicalPath = await file.resolveSymbolicLinks();
+        if (!visitedPaths.add(canonicalPath)) continue;
+        final length = await file.length();
+        // Empty files are not valid completed downloads.
+        if (length == 0) continue;
+        (lengths[length] ??= <DownloadEntry>[]).add(item);
       } on FileSystemException { /* inaccessible file: skip */ }
     }
     final digestGroups = <String,List<DownloadEntry>>{};
@@ -37,13 +39,20 @@ class StorageAudit {
 
   /// App-managed completed files only; cached downloads not in history are not counted.
   static Future<int> recordedBytes(List<DownloadEntry> entries) async {
-    var total=0;
-    final visited=<String>{};
-    for(final entry in entries){
-      if(entry.status!='complete' || entry.path.isEmpty || entry.isPlaylist)continue;
-      if(!visited.add(entry.path))continue;
-      try {final file=File(entry.path);if(await file.exists())total+=await file.length();}
-      on FileSystemException { /* file was removed or inaccessible */ }
+    var total = 0;
+    final visitedPaths = <String>{};
+    for (final entry in entries) {
+      if (entry.status != 'complete' || entry.path.isEmpty || entry.isPlaylist) {
+        continue;
+      }
+      try {
+        final file = File(entry.path);
+        if (!await file.exists()) continue;
+        // Normalize aliases before accounting for app-managed storage.
+        final canonicalPath = await file.resolveSymbolicLinks();
+        if (!visitedPaths.add(canonicalPath)) continue;
+        total += await file.length();
+      } on FileSystemException { /* file was removed or inaccessible */ }
     }
     return total;
   }
