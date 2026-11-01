@@ -29,7 +29,11 @@ class DirectCompletionVerifier {
 
     try {
       final file = File(path);
-      if (!await file.exists() || await file.length() <= 0) {
+      // A directory or an empty/missing file is never a completed transfer.
+      // Capture file metadata before hashing: the native destination can be
+      // replaced or truncated while the asynchronous digest is in progress.
+      final before = await file.stat();
+      if (before.type != FileSystemEntityType.file || before.size <= 0) {
         if (!isCurrent()) return null;
         return DirectCompletionResult.missing(path);
       }
@@ -40,6 +44,16 @@ class DirectCompletionVerifier {
             ? sha256.bind(file.openRead()).first.then((digest) => digest.toString())
             : hashFile(file));
         if (!isCurrent()) return null;
+        final after = await file.stat();
+        if (!isCurrent()) return null;
+        // Never accept a digest computed across an unstable file. Even when a
+        // test or native callback supplies a matching digest, the destination
+        // must still be the same size and modification generation.
+        if (after.type != FileSystemEntityType.file ||
+            after.size != before.size || after.modified != before.modified) {
+          return DirectCompletionResult(
+            path: path, status: 'error', error: 'verificationFailed');
+        }
         return actual.toLowerCase() == expectedSha256.toLowerCase()
             ? DirectCompletionResult.success(path, actualSha256: actual)
             : DirectCompletionResult(
