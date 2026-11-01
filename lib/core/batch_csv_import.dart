@@ -8,10 +8,12 @@ class BatchCsvImport {
     var row = <String>[];
     var field = StringBuffer();
     var quoted = false;
+    var afterQuote = false;
 
     void finishField() {
       row.add(field.toString());
       field = StringBuffer();
+      afterQuote = false;
     }
 
     void finishRow() {
@@ -31,9 +33,17 @@ class BatchCsvImport {
             i++;
           } else {
             quoted = false;
+            afterQuote = true;
           }
         } else {
           field.write(char);
+        }
+      } else if (afterQuote && char != ',' && char != '\r' && char != '\n') {
+        // RFC 4180: a closing quote must be followed by a delimiter or
+        // record end. Ignore only harmless formatting whitespace; never
+        // silently append text to a previously quoted URL.
+        if (char != ' ' && char != '\t') {
+          throw const FormatException('Malformed CSV quoting');
         }
       } else if (char == '"' && field.length == 0) {
         quoted = true;
