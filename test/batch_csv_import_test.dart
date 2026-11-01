@@ -48,7 +48,7 @@ void main() {
   test('rejects unexpected text after a closing quoted URL', () {
     for (final csv in [
       'URL\n"https://example.org/a.zip"garbage\n',
-      'URL\n"https://example.org/a.zip""extra"\n',
+      'URL\n"https://example.org/a.zip""extra"tail\n',
       'URL\n"https://example.org/a.zip" "other"\n',
     ]) {
       expect(() => BatchCsvImport.extractUrls(csv), throwsFormatException,
