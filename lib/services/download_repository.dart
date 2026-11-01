@@ -194,8 +194,9 @@ class DownloadRepository extends ChangeNotifier {
   /// after a platform-channel failure, and never silently recreate lost work.
   Future<void> _reconcileInterruptedDirect() async {
     const recoverable = {'running','submitting','waiting','paused','verifying'};
+    // Snapshot the queue: callbacks and user actions may mutate it during await.
     for (final item in _items.where((e) => e.kind == 'direct' &&
-        !e.scheduledExternally && recoverable.contains(e.status))) {
+        !e.scheduledExternally && recoverable.contains(e.status)).toList()) {
       // A live verification owns the result; a foreground reconciliation must
       // not turn it into a failure while hashing is still in progress.
       if (_verifyingDirectIds.contains(item.id)) continue;
