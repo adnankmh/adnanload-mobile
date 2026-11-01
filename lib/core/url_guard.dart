@@ -25,7 +25,15 @@ class UrlGuard {
           (parts[0] == 169 && parts[1] == 254) ||
           (parts[0] == 192 && parts[1] == 168) ||
           (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) ||
-          (parts[0] == 100 && parts[1] >= 64 && parts[1] <= 127)) return null;
+          (parts[0] == 100 && parts[1] >= 64 && parts[1] <= 127) ||
+          // Special-use IPv4 networks are not public download endpoints.
+          // Exclude documentation (TEST-NET), benchmarking and deprecated
+          // 6to4 relay ranges; they must not enter the native download queue.
+          (parts[0] == 192 && parts[1] == 0 && parts[2] == 2) ||
+          (parts[0] == 192 && parts[1] == 88 && parts[2] == 99) ||
+          (parts[0] == 198 && (parts[1] == 18 || parts[1] == 19)) ||
+          (parts[0] == 198 && parts[1] == 51 && parts[2] == 100) ||
+          (parts[0] == 203 && parts[1] == 0 && parts[2] == 113)) return null;
     } else {
       // Shortened, decimal and hexadecimal IPv4 host aliases can resolve to
       // private addresses (127.1, 2130706433, 0x7f000001).
