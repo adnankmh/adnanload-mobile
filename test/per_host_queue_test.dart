@@ -25,6 +25,39 @@ void main() {
         'https://example.org:8443/c', active), isFalse);
   });
 
+
+  test('multiple trailing DNS root dots share one concurrency budget', () {
+    final active = <String, int>{};
+    TransferPolicy.countDirectHost('https://example.org.../one', active);
+    TransferPolicy.countDirectHost('http://EXAMPLE.ORG./two', active);
+    expect(active, {'example.org': 2});
+    expect(TransferPolicy.mayStartDirectHost(
+        'https://example.org../three', active), isFalse);
+    expect(TransferPolicy.mayStartDirectHost(
+        'https://other.example.org/three', active), isTrue);
+  });
+
+  test('unsafe URLs cannot reserve queue slots or start direct work', () {
+    final active = <String, int>{};
+    for (final url in <String>[
+      'https://user:password@example.org/file',
+      'http://127.0.0.1/private',
+      'http://127.1/private',
+      'http://localhost/file',
+      'https://host.internal/file',
+      'https://example.org..invalid./file',
+      'http://0x7f000001/private',
+    ]) {
+      expect(TransferPolicy.directHost(url), isNull, reason: url);
+      expect(TransferPolicy.mayStartDirectHost(url, active), isFalse,
+          reason: url);
+      TransferPolicy.countDirectHost(url, active);
+    }
+    expect(active, isEmpty);
+    expect(TransferPolicy.mayStartDirectHost(
+        'https://example.org/file', active), isTrue);
+  });
+
   test('subdomains have separate limits', () {
     final active = <String, int>{};
     TransferPolicy.countDirectHost('https://a.example.org/a', active);

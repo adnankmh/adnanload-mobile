@@ -1,18 +1,18 @@
 import '../models/download_entry.dart';
+import 'url_guard.dart';
 
 /// Deterministic queue policy. Never bypasses the Android OS scheduler.
 class TransferPolicy {
   /// Limit concurrent in-app direct transfers per host, regardless of scheme
   /// or port. Scheduled Android jobs remain owned by WorkManager.
   static String? directHost(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
-      return null;
-    }
-    final host = uri.host.toLowerCase();
-    return host.endsWith('.') ? host.substring(0, host.length - 1) : host;
+    // Apply the same public-URL guard used at enqueue time. Persisted history
+    // and external intents must not claim queue capacity for local, credential-
+    // bearing or malformed addresses.
+    final uri = UrlGuard.validate(url);
+    if (uri == null) return null;
+    // All trailing DNS root dots are equivalent for per-host throttling.
+    return uri.host.toLowerCase().replaceFirst(RegExp(r'\.+$'), '');
   }
 
   static void countDirectHost(String url, Map<String, int> counts) {
