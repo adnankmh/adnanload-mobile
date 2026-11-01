@@ -16,6 +16,14 @@ class SmartLink {
     return PlaylistRules.looksLikeMediaSite(url) ? 'video' : 'direct';
   }
 
+  /// Route known media webpages through extraction instead of downloading HTML.
+  /// Explicit media choices (video/audio) remain unchanged.
+  static String incomingKind(String url, {String requested = 'direct'}) {
+    if (requested != 'direct') return requested;
+    final detected = kind(url);
+    return detected == 'playlist' ? 'video' : detected;
+  }
+
   static String category(String filename) {
     final n = filename.toLowerCase().split('?').first;
     if (RegExp(r'\.(mp4|mkv|mov|avi|webm|m4v)$').hasMatch(n)) return 'video';
