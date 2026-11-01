@@ -123,9 +123,8 @@ class _BrowserPageState extends State<BrowserPage> with WidgetsBindingObserver {
           if(choices.isNotEmpty)SizedBox(height:300,child:ListView.builder(itemCount:choices.length,
             itemBuilder:(_,i){final link=choices[i];return ListTile(
               leading:const Icon(Icons.download_rounded),title:Text(link,maxLines:2,overflow:TextOverflow.ellipsis),
-              onTap:(){Navigator.pop(ctx);widget.onDownload(link,
-                RegExp(r'\.(mp4|webm|m3u8)(?:$|\?)',caseSensitive:false).hasMatch(link)
-                  ? 'video' : 'direct');},);}))
+              onTap:(){Navigator.pop(ctx);widget.onDownload(
+                link, MediaDetector.detectedDownloadKind(link));},);}))
         ]))));
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'url_guard.dart';
+import 'smart_link.dart';
 
 /// Only explicitly exposed DOM URL candidates. No DRM decryption, credential
 /// interception, cross-origin network sniffing or hidden stream capture.
@@ -18,6 +19,17 @@ class MediaDetector {
       .forEach(el => add(el.content));
     return JSON.stringify(Array.from(found));
   })()''';
+
+  /// Direct media files use the resumable native downloader, while stream
+  /// manifests and known media pages use the extractor. No DRM interception.
+  static String detectedDownloadKind(String url) {
+    final uri = UrlGuard.validate(url);
+    if (uri == null) return 'direct';
+    if (RegExp(r'\.(m3u8|mpd)$', caseSensitive: false).hasMatch(uri.path)) {
+      return 'video';
+    }
+    return SmartLink.incomingKind(url);
+  }
 
   static List<String> parse(Object? value) {
     dynamic parsed = value;
