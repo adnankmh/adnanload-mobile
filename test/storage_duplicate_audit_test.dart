@@ -80,4 +80,26 @@ void main() {
 
     expect(groups, isEmpty);
   });
+
+  test('path and symlink aliases do not masquerade as duplicate files', () async {
+    final original = File('${temp.path}/original.bin');
+    final copy = File('${temp.path}/copy.bin');
+    final nested = Directory('${temp.path}/nested');
+    await nested.create();
+    await original.writeAsBytes([9, 8, 7]);
+    await copy.writeAsBytes([9, 8, 7]);
+    final alias = Link('${temp.path}/alias.bin');
+    await alias.create(original.path);
+
+    final groups = await StorageAudit.findDuplicates([
+      completed('original', original.path),
+      completed('dot-alias', '${nested.path}/../original.bin'),
+      completed('symlink-alias', alias.path),
+      completed('copy', copy.path),
+    ]);
+
+    expect(groups, hasLength(1));
+    expect(groups.single.map((entry) => entry.id).toSet(),
+        equals({'original', 'copy'}));
+  });
 }
