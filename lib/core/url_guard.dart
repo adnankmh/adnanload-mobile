@@ -43,6 +43,48 @@ class UrlGuard {
     return uri;
   }
 
+  /// Reserve a distinct, portable filename before a job enters the queue.
+  ///
+  /// Keep the numeric suffix *inside* safeName's UTF-16/UTF-8 limits rather
+  /// than appending it to an already truncated filename. Case-insensitive
+  /// comparison avoids collisions when files are exported to other systems.
+  /// Callers should include all persisted names, including canceled jobs:
+  /// canceling a transfer does not prove its partial file was deleted.
+  static String uniqueName(String requested, Iterable<String> occupied) {
+    final original = safeName(requested);
+    final taken = occupied.map((name) => name.toLowerCase()).toSet();
+    if (!taken.contains(original.toLowerCase())) return original;
+
+    final dot = original.lastIndexOf('.');
+    final extension = dot > 0 && original.length - dot <= 20
+        ? original.substring(dot)
+        : '';
+    final stem = extension.isEmpty ? original : original.substring(0, dot);
+
+    // At most N occupied names can block N distinct numbered candidates.
+    for (var number = 1; number <= taken.length + 1; number++) {
+      final suffix = '_$number';
+      final unitLimit = 160 - extension.length - suffix.length;
+      final byteLimit = 240 - utf8.encode(extension).length -
+          utf8.encode(suffix).length;
+      final buffer = StringBuffer();
+      var units = 0;
+      var bytes = 0;
+      for (final rune in stem.runes) {
+        final character = String.fromCharCode(rune);
+        final encodedLength = utf8.encode(character).length;
+        if (units + character.length > unitLimit ||
+            bytes + encodedLength > byteLimit) break;
+        buffer.write(character);
+        units += character.length;
+        bytes += encodedLength;
+      }
+      final candidate = '${buffer.toString()}$suffix$extension';
+      if (!taken.contains(candidate.toLowerCase())) return candidate;
+    }
+    throw StateError('Unable to allocate a distinct filename');
+  }
+
   static String nameFromUrl(String url) {
     final uri = validate(url);
     if (uri == null) return 'download.bin';

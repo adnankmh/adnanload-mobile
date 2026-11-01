@@ -456,16 +456,10 @@ class DownloadRepository extends ChangeNotifier {
     }
     final millis = DateTime.now().microsecondsSinceEpoch;
     final id = 'adnan_$millis';
-    var cleanName = UrlGuard.safeName(name.trim().isEmpty ? UrlGuard.nameFromUrl(url) : name);
-    final wanted = cleanName;
-    var suffix = 1;
-    while (_items.any((e) => e.name == cleanName && e.status != 'canceled')) {
-      final dot = wanted.lastIndexOf('.');
-      final stem = dot > 0 ? wanted.substring(0, dot) : wanted;
-      final ext = dot > 0 ? wanted.substring(dot) : '';
-      cleanName = '${stem}_$suffix$ext';
-      suffix++;
-    }
+    final cleanName = UrlGuard.uniqueName(
+      name.trim().isEmpty ? UrlGuard.nameFromUrl(url) : name,
+      _items.map((item) => item.name),
+    );
     final item = DownloadEntry(id:id, url:uri.toString(), name:cleanName,
       kind:kind, status:'waiting', quality:quality, addedAt:DateTime.now().millisecondsSinceEpoch,
       isPlaylist: playlist, playlistItems: playlistItems, audioFormat: audioFormat,
