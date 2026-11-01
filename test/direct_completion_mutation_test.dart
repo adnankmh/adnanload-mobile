@@ -64,7 +64,9 @@ void main() {
   test('rejects destination removed while checksum is in progress', () async {
     final file = await File('${root.path}/removed.bin')
         .writeAsBytes([97, 98, 99]);
-    final result = await inspectWhileHashing(file, file.delete);
+    final result = await inspectWhileHashing(file, () async {
+      await file.delete();
+    });
     expect(result?.status, 'error');
     expect(result?.error, 'verificationFailed');
   });
