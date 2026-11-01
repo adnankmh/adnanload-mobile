@@ -306,8 +306,14 @@ class DownloadRepository extends ChangeNotifier {
 
   void _handleDirectUpdate(bd.TaskUpdate update) {
     final item = entry(update.task.taskId);
-    // Late Android callbacks must not revive a job canceled by the user.
-    if (item == null || item.kind != 'direct' || item.status == 'canceled') return;
+    // Late native callbacks must not revive canceled or terminal jobs.
+    if (item == null || item.kind != 'direct' ||
+        const {'canceled', 'complete', 'error'}.contains(item.status)) return;
+    // Ignore out-of-order progress/running updates during file verification.
+    if (item.status == 'verifying' &&
+        update is bd.TaskStatusUpdate &&
+        !const {bd.TaskStatus.complete, bd.TaskStatus.failed, bd.TaskStatus.canceled}
+            .contains(update.status)) return;
     if (update is bd.TaskStatusUpdate && update.status == bd.TaskStatus.complete) {
       // Native callbacks can be duplicated; verify each task only once.
       if (_verifyingDirectIds.add(item.id)) {
