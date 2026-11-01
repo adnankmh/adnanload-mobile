@@ -6,7 +6,6 @@ import 'package:background_downloader/background_downloader.dart' as bd;
 import 'package:extractor/extractor.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:crypto/crypto.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +19,7 @@ import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../core/transfer_policy.dart';
 import '../core/range_probe.dart';
+import '../core/direct_completion_verifier.dart';
 import '../core/download_metrics.dart';
 import 'privacy_lock.dart';
 import 'backup_service.dart';
@@ -52,6 +52,7 @@ class DownloadRepository extends ChangeNotifier {
   bool automaticRetry = true;
   int batteryFloor = 0;
   final Set<String> _foregroundRequestIds = {};
+  final Set<String> _verifyingDirectIds = {};
   final List<String> _diagnosticEvents = [];
   List<String> get diagnosticEvents => List.unmodifiable(_diagnosticEvents);
   DownloadMetrics get metrics => DownloadMetrics.fromEntries(_items);
@@ -305,9 +306,13 @@ class DownloadRepository extends ChangeNotifier {
 
   void _handleDirectUpdate(bd.TaskUpdate update) {
     final item = entry(update.task.taskId);
-    if (item == null || item.kind != 'direct') return;
+    // Late Android callbacks must not revive a job canceled by the user.
+    if (item == null || item.kind != 'direct' || item.status == 'canceled') return;
     if (update is bd.TaskStatusUpdate && update.status == bd.TaskStatus.complete) {
-      unawaited(_verifyNativeTaskDestination(item, update.task));
+      // Native callbacks can be duplicated; verify each task only once.
+      if (_verifyingDirectIds.add(item.id)) {
+        unawaited(_verifyNativeTaskDestination(item, update.task));
+      }
       return;
     }
     if (update is bd.TaskProgressUpdate) {
@@ -340,43 +345,38 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   Future<void> _verifyNativeTaskDestination(DownloadEntry item, bd.Task task) async {
-    // Mark complete only after resolving the actual path reported by the
-    // downloader and checking that the file is present and non-empty.
-    item.status = 'verifying';
-    notifyListeners();
+    bool isCurrent() => _items.contains(item) && item.status == 'verifying';
     try {
-      item.path = await task.filePath();
-    } catch (_) {
-      // Retain the original persisted path as a fallback for old downloads.
-    }
-    await _confirmDownloadedFile(item);
-    if (item.status == 'complete') _maybeOpenCompleted(item);
-    item.nativeQueued = false;
-    item.scheduledExternally = false;
-    unawaited(_pump());
-  }
-
-  Future<void> _confirmDownloadedFile(DownloadEntry item) async {
-    try {
-      if (item.path.isEmpty) throw const FileSystemException('Missing path');
-      final file = File(item.path);
-      if (!await file.exists() || await file.length() <= 0) {
-        item.status = 'error';
-        item.error = 'downloadedFileMissing';
-      } else if (item.expectedSha256.isNotEmpty) {
-        await _verifyCompletedFile(item);
-        return;
-      } else {
-        item.status = 'complete';
-        item.error = '';
+      if (!_items.contains(item) || item.status == 'canceled') return;
+      item.status = 'verifying';
+      notifyListeners();
+      final result = await DirectCompletionVerifier.inspect(
+        resolvePath: task.filePath,
+        fallbackPath: item.path,
+        expectedSha256: item.expectedSha256,
+        isCurrent: isCurrent,
+      );
+      // Cancellation, removal, or a later native failure takes precedence over
+      // a stale file/hash result, including one produced during an await.
+      if (result == null || !isCurrent()) return;
+      item.path = result.path;
+      item.actualSha256 = result.actualSha256;
+      item.status = result.status;
+      item.error = result.error;
+      if (item.status == 'complete') {
         item.progress = 1;
+        _maybeOpenCompleted(item);
       }
-    } catch (_) {
-      item.status = 'error';
-      item.error = 'downloadedFileMissing';
+    } finally {
+      _verifyingDirectIds.remove(item.id);
+      if (_items.contains(item) && item.status != 'canceled') {
+        item.nativeQueued = false;
+        item.scheduledExternally = false;
+        notifyListeners();
+        _persistSoon();
+      }
+      unawaited(_pump());
     }
-    notifyListeners();
-    _persistSoon();
   }
 
   Future<bool> _ensureMedia() => _mediaInitFuture ??= _initializeMedia();
@@ -839,19 +839,6 @@ class DownloadRepository extends ChangeNotifier {
     if (newLanguage != null) _configureNotifications();
     if (newAutoUpdateMediaEngine == true && _initializedMedia) unawaited(_checkMediaUpdateIfDue());
     notifyListeners();
-  }
-
-  Future<void> _verifyCompletedFile(DownloadEntry item) async {
-    final file = File(item.path);
-    try {
-      if (!await file.exists()) throw const FileSystemException('Downloaded file missing');
-      final result = await sha256.bind(file.openRead()).first;
-      item.actualSha256 = result.toString();
-      if (item.actualSha256.toLowerCase() != item.expectedSha256.toLowerCase()) {
-        item.status = 'error'; item.error = 'checksumMismatch';
-      } else { item.status = 'complete'; item.error = ''; }
-    } catch (e) { item.status = 'error'; item.error = 'verificationFailed'; }
-    notifyListeners(); _persistSoon();
   }
 
   Future<void> addConvertedFile(DownloadEntry source, String path) async {
