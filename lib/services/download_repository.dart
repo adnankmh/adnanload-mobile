@@ -167,6 +167,8 @@ class DownloadRepository extends ChangeNotifier {
     try { await bd.FileDownloader().resumeFromBackground(); }
     catch (_) { _event('Could not refresh Android background job events'); }
     await _reconcileScheduledDirect();
+    // Retry interrupted completion checks after transient native lookup errors.
+    await _reconcileInterruptedDirect();
     await _pump();
   }
 
@@ -191,15 +193,30 @@ class DownloadRepository extends ChangeNotifier {
   /// snapshot predates the enqueue callback. Do not guess native task state
   /// after a platform-channel failure, and never silently recreate lost work.
   Future<void> _reconcileInterruptedDirect() async {
+    const recoverable = {'running','submitting','waiting','paused','verifying'};
+    // Snapshot the queue: callbacks and user actions may mutate it during await.
     for (final item in _items.where((e) => e.kind == 'direct' &&
-        !e.scheduledExternally &&
-        {'running','submitting','waiting','paused'}.contains(e.status))) {
+        !e.scheduledExternally && recoverable.contains(e.status)).toList()) {
+      // A live verification owns the result; a foreground reconciliation must
+      // not turn it into a failure while hashing is still in progress.
+      if (_verifyingDirectIds.contains(item.id)) continue;
       try {
         final task = await bd.FileDownloader().taskForId(item.id);
+        // Native callbacks may have changed or removed the entry during await.
+        if (!_items.contains(item) || !recoverable.contains(item.status) ||
+            _verifyingDirectIds.contains(item.id)) continue;
+        final wasVerifying = item.status == 'verifying';
         TransferPolicy.reconcileRestoredDirect(item,
             nativeTaskExists: task != null);
+        if (wasVerifying && task != null && item.status == 'verifying' &&
+            _verifyingDirectIds.add(item.id)) {
+          // A completed native task still needs a fresh on-disk check. Do not
+          // block startup on a potentially large SHA-256 calculation.
+          unawaited(_verifyNativeTaskDestination(item, task));
+        }
       } catch (_) {
         // A transient platform-channel failure is not evidence of missing work.
+        // The next foreground reconciliation can retry this verification.
       }
     }
     _persistSoon();

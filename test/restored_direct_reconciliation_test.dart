@@ -73,6 +73,40 @@ void main() {
     }
   });
 
+  test('interrupted verification with native task awaits file verification', () {
+    final item = restored(status: 'verifying', autoQueue: true);
+    TransferPolicy.reconcileRestoredDirect(item, nativeTaskExists: true);
+    expect(item.status, 'verifying');
+    expect(item.nativeQueued, isTrue);
+    expect(item.autoQueue, isFalse);
+    expect(item.error, isEmpty);
+  });
+
+  test('orphaned verification fails closed rather than remaining stuck', () {
+    final item = restored(status: 'verifying', nativeQueued: true);
+    TransferPolicy.reconcileRestoredDirect(item, nativeTaskExists: false);
+    expect(item.status, 'error');
+    expect(item.error, 'verificationFailed');
+    expect(item.nativeQueued, isFalse);
+    expect(item.autoQueue, isFalse);
+    // Reconciliation must never restart an unverified partial transfer.
+    TransferPolicy.reconcileRestoredDirect(item, nativeTaskExists: false);
+    expect(item.status, 'error');
+    expect(item.autoQueue, isFalse);
+  });
+
+  test('interrupted verification of media or scheduled job is untouched', () {
+    final cases = [
+      restored(kind: 'video', status: 'verifying'),
+      restored(status: 'verifying', scheduledExternally: true),
+    ];
+    for (final item in cases) {
+      final before = item.toJson();
+      TransferPolicy.reconcileRestoredDirect(item, nativeTaskExists: false);
+      expect(item.toJson(), before);
+    }
+  });
+
   test('scheduled, media and terminal jobs remain untouched', () {
     final cases = [
       restored(status: 'waiting', scheduledExternally: true),

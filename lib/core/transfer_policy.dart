@@ -50,8 +50,21 @@ class TransferPolicy {
   static void reconcileRestoredDirect(DownloadEntry item,
       {required bool nativeTaskExists}) {
     if (item.kind != 'direct' || item.scheduledExternally ||
-        !const {'running', 'submitting', 'waiting', 'paused'}
+        !const {'running', 'submitting', 'waiting', 'paused', 'verifying'}
             .contains(item.status)) {
+      return;
+    }
+    if (item.status == 'verifying') {
+      // The app may have died after receiving a native completion callback,
+      // but before file/hash verification finished. Never enqueue a second
+      // transfer or silently trust an unverified persisted path.
+      item.autoQueue = false;
+      item.nativeQueued = nativeTaskExists;
+      if (!nativeTaskExists) {
+        item.status = 'error';
+        item.error = 'verificationFailed';
+      }
+      // When the native task exists, the repository re-runs file verification.
       return;
     }
     if (nativeTaskExists) {
