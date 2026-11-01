@@ -12,6 +12,22 @@ void main() {
     }
   });
 
+  test('stale range and precondition failures are never auto-retried', () {
+    for (final reason in [
+      'HTTP Error 412: Precondition Failed',
+      'HTTP 416: Range Not Satisfiable',
+      'status code: 416; timeout',
+      'precondition failed: connection reset',
+      'requested range not satisfiable: temporary failure',
+    ]) {
+      expect(TransferPolicy.shouldRetry(reason, 0), isFalse, reason: reason);
+      expect(TransferPolicy.shouldRetry(reason, 2), isFalse, reason: reason);
+    }
+    // Normal server throttling and outages must still use bounded retries.
+    expect(TransferPolicy.shouldRetry('HTTP 429: timeout', 0), isTrue);
+    expect(TransferPolicy.shouldRetry('HTTP 503: connection reset', 1), isTrue);
+  });
+
   test('permanent failures override embedded transient network text', () {
     for (final reason in ['HTTP Error 403: connection reset',
       'HTTP 401: timeout', 'status code: 404; SocketException',
