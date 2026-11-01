@@ -47,9 +47,9 @@ void main() {
 
   test('rejects unexpected text after a closing quoted URL', () {
     for (final csv in [
-      'URL\\n"https://example.org/a.zip"garbage\\n',
-      'URL\\n"https://example.org/a.zip""extra"\\n',
-      'URL\\n"https://example.org/a.zip" "other"\\n',
+      'URL\n"https://example.org/a.zip"garbage\n',
+      'URL\n"https://example.org/a.zip""extra"\n',
+      'URL\n"https://example.org/a.zip" "other"\n',
     ]) {
       expect(() => BatchCsvImport.extractUrls(csv), throwsFormatException,
           reason: csv);
@@ -57,9 +57,9 @@ void main() {
   });
 
   test('allows harmless whitespace after a closing quote', () {
-    const csv = 'URL,Name\\r\\n'
-        '"https://example.org/a.zip" \\t,First\\r\\n'
-        '"https://example.org/b.pdf"\\t,Second\\r\\n';
+    const csv = 'URL,Name\r\n'
+        '"https://example.org/a.zip" \t,First\r\n'
+        '"https://example.org/b.pdf"\t,Second\r\n';
     expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
       'https://example.org/a.zip',
       'https://example.org/b.pdf',
@@ -67,13 +67,13 @@ void main() {
   });
 
   test('retains escaped quotes in a non-URL CSV field', () {
-    const csv = 'Name,URL\\n'
-        '"October ""final""", "https://example.org/a.zip"\\n';
+    const csv = 'Name,URL\n'
+        '"October ""final""", "https://example.org/a.zip"\n';
     // Quoted fields must start at the beginning of the field, so a space
     // before a quote is malformed rather than silently reinterpreted.
     expect(() => BatchCsvImport.extractUrls(csv), throwsFormatException);
-    const valid = 'Name,URL\\n'
-        '"October ""final""","https://example.org/a.zip"\\n';
+    const valid = 'Name,URL\n'
+        '"October ""final""","https://example.org/a.zip"\n';
     expect(BatchLinks.parse(BatchCsvImport.extractUrls(valid)),
         ['https://example.org/a.zip']);
   });
