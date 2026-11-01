@@ -92,8 +92,10 @@ class TransferPolicy {
     final codes = RegExp(
       r'\b(?:http(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
     ).allMatches(text).map((match) => int.parse(match.group(1)!)).toSet();
-    if (codes.any((code) => const {400, 401, 403, 404, 410, 451}.contains(code)) ||
-        RegExp(r'\b(drm|widevine)\b|login required|sign in|private video|unsupported url|no space left|disk full|enospc').hasMatch(text)) {
+    // A stale partial download (412/416) needs an explicit fresh request;
+    // automatically retrying the same range can repeatedly corrupt a resume.
+    if (codes.any((code) => const {400, 401, 403, 404, 410, 412, 416, 451}.contains(code)) ||
+        RegExp(r'\b(drm|widevine)\b|login required|sign in|private video|unsupported url|precondition failed|range not satisfiable|no space left|disk full|enospc').hasMatch(text)) {
       return false;
     }
     if (codes.any((code) => const {408, 425, 429, 500, 502, 503, 504}.contains(code))) {
