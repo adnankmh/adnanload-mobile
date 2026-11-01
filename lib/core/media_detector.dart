@@ -25,26 +25,7 @@ class MediaDetector {
   static String detectedDownloadKind(String url) {
     final uri = UrlGuard.validate(url);
     if (uri == null) return 'direct';
-    if (RegExp(r'\.(m3u8|mpd)
-    dynamic parsed = value;
-    try {
-      if(parsed is String) parsed=jsonDecode(parsed);
-      if(parsed is String) parsed=jsonDecode(parsed);
-    } catch (_) {return const [];} 
-    if(parsed is! List) return const [];
-    final urls = <String>[];
-    for(final item in parsed) {
-      if (item is! String || item.length > 2048) continue;
-      final uri=UrlGuard.validate(item);
-      if (uri==null) continue;
-      final url=uri.toString();
-      if (!urls.contains(url)) urls.add(url);
-      if (urls.length>=12)break;
-    }
-    return urls;
-  }
-}
-, caseSensitive: false).hasMatch(uri.path)) {
+    if (RegExp(r'\.(m3u8|mpd)$', caseSensitive: false).hasMatch(uri.path)) {
       return 'video';
     }
     return SmartLink.incomingKind(url);
