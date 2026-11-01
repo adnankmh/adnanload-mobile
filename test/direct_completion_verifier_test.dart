@@ -32,7 +32,7 @@ void main() {
     final bad = await DirectCompletionVerifier.inspect(
       resolvePath: () async => file.path,
       fallbackPath: '',
-      expectedSha256: '0' * 64,
+      expectedSha256: List.filled(64, '0').join(),
       isCurrent: () => true,
     );
     expect(bad?.error, 'checksumMismatch');
@@ -88,7 +88,7 @@ void main() {
     final inspection = DirectCompletionVerifier.inspect(
       resolvePath: () async => file.path,
       fallbackPath: '',
-      expectedSha256: '0' * 64,
+      expectedSha256: List.filled(64, '0').join(),
       isCurrent: () => active,
       hashFile: (_) {
         hashing.complete();
@@ -97,7 +97,7 @@ void main() {
     );
     await hashing.future;
     active = false;
-    pending.complete('0' * 64);
+    pending.complete(List.filled(64, '0').join());
     expect(await inspection, isNull);
   });
 }
