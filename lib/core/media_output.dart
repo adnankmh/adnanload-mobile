@@ -26,17 +26,23 @@ class MediaOutput {
     await FileSystemEntity.type(file.path, followLinks: false) == FileSystemEntityType.file &&
     await file.length() > 0;
 
+  // A successful extractor callback must point to the requested job output,
+  // not an unrelated media file left in the same directory.
+  static bool _matchesBasename(File file, String basename) =>
+      file.path.split(Platform.pathSeparator).last.startsWith('$basename.');
+
   static Future<String?> singleFile(Directory output, String basename,
       String? reportedPath) async {
     if (reportedPath != null && reportedPath.isNotEmpty) {
       final reported = File(reportedPath);
       if (reported.absolute.parent.path == output.absolute.path &&
+          _matchesBasename(reported, basename) &&
           await isFinishedFile(reported)) return reported.path;
     }
     final candidates = <String>[];
     await for (final entity in output.list(followLinks: false)) {
       if (entity is File &&
-          entity.path.split(Platform.pathSeparator).last.startsWith('$basename.') &&
+          _matchesBasename(entity, basename) &&
           await isFinishedFile(entity)) candidates.add(entity.path);
     }
     return candidates.length == 1 ? candidates.single : null;
