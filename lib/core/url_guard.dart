@@ -117,8 +117,11 @@ class UrlGuard {
 
     // Windows treats these as devices even with an extension. Shared files
     // must remain portable, including COM3-COM9 and LPT3-LPT9.
-    final reserved = RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$',
-        caseSensitive: false);
+    // Windows also reserves superscript COM/LPT digits and console aliases.
+    final reserved = RegExp(
+      r'^(CON|PRN|AUX|NUL|CONIN[$]|CONOUT[$]|(?:COM|LPT)[1-9¹²³])$',
+      caseSensitive: false,
+    );
     final normalized = reserved.hasMatch(cleaned.split('.').first.trimRight())
         ? '_' + cleaned
         : cleaned;
