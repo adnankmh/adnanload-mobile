@@ -113,9 +113,15 @@ class TransferPolicy {
         RegExp(r'\b(drm|widevine)\b|login required|sign in|private video|unsupported url|precondition failed|range not satisfiable|content[- ]range (?:mismatch|invalid)|(?:etag|checksum|hash) mismatch|no space left|disk full|enospc').hasMatch(text)) {
       return false;
     }
-    if (codes.any((code) => const {408, 425, 429, 500, 502, 503, 504}.contains(code))) {
-      return true;
+    // An explicit HTTP status is more authoritative than incidental socket
+    // text in an error message. Never retry redirects, successful responses,
+    // or permanent 4xx/5xx failures simply because they mention a timeout.
+    // This also prevents a transient status from masking a later fatal one.
+    const retryableHttpCodes = <int>{408, 425, 429, 500, 502, 503, 504};
+    if (codes.any((code) => !retryableHttpCodes.contains(code))) {
+      return false;
     }
+    if (codes.isNotEmpty) return true;
     return const ['timeout', 'timed out', 'connection reset',
       'connection refused', 'connection closed', 'network unreachable', 'network is unreachable',
       'temporary failure', 'unable to resolve', 'socketexception',
