@@ -26,7 +26,7 @@ void main() {
       expect(UrlGuard.safeName(name).startsWith('_'), isTrue,
           reason: name);
     }
-    expect(UrlGuard.safeName('normal .txt'), 'normal .txt');
+    expect(UrlGuard.safeName('normal .txt'), 'normal.txt');
   });
 
   test('URL extraction and collision policy inherit filename protections', () {
