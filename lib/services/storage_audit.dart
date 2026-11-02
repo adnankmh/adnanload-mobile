@@ -5,33 +5,66 @@ import '../models/download_entry.dart';
 
 /// Scans only files referenced by ADNANLOAD history. Read-only by default.
 class StorageAudit {
-  static Future<List<List<DownloadEntry>>> findDuplicates(List<DownloadEntry> entries) async {
+  /// Compare distinct, stable on-disk files only. A download can still be
+  /// writing (or a symlink can be retargeted) while this read-only audit runs.
+  /// The optional digest callback makes these races deterministic in tests.
+  static Future<List<List<DownloadEntry>>> findDuplicates(
+    List<DownloadEntry> entries, {
+    Future<String> Function(File)? hashFile,
+  }) async {
     final lengths = <int, List<DownloadEntry>>{};
+    final canonicalPaths = <DownloadEntry, String>{};
     // Multiple history records can reference the same downloaded file.
     // A duplicate must represent a second, distinct file on disk.
     final visitedPaths = <String>{};
     for (final item in entries) {
-      if (item.status != 'complete' || item.isPlaylist || item.path.isEmpty) continue;
+      if (item.status != 'complete' || item.isPlaylist || item.path.isEmpty) {
+        continue;
+      }
       final file = File(item.path);
       try {
-        if (!await file.exists()) continue;
-        // Distinct history paths may resolve to the same file through '..'
-        // segments or symlinks. Count the underlying file only once.
+        final stat = await file.stat();
+        if (stat.type != FileSystemEntityType.file || stat.size <= 0) continue;
         final canonicalPath = await file.resolveSymbolicLinks();
         if (!visitedPaths.add(canonicalPath)) continue;
-        final length = await file.length();
-        // Empty files are not valid completed downloads.
-        if (length == 0) continue;
-        (lengths[length] ??= <DownloadEntry>[]).add(item);
-      } on FileSystemException { /* inaccessible file: skip */ }
+        canonicalPaths[item] = canonicalPath;
+        (lengths[stat.size] ??= <DownloadEntry>[]).add(item);
+      } on FileSystemException {
+        // Inaccessible or removed files are not duplicate candidates.
+      }
     }
-    final digestGroups = <String,List<DownloadEntry>>{};
-    for (final group in lengths.values.where((x) => x.length > 1)) {
-      for (final item in group) {
+
+    final digestGroups = <String, List<DownloadEntry>>{};
+    for (final sizeGroup in lengths.entries.where((x) => x.value.length > 1)) {
+      for (final item in sizeGroup.value) {
+        final file = File(item.path);
         try {
-          final hash = await sha256.bind(File(item.path).openRead()).first;
-          (digestGroups[hash.toString()] ??= <DownloadEntry>[]).add(item);
-        } on FileSystemException { /* inaccessible file: skip */ }
+          // The file must still be the one observed during the size scan.
+          final canonicalBefore = await file.resolveSymbolicLinks();
+          if (canonicalBefore != canonicalPaths[item]) continue;
+          final before = await file.stat();
+          if (before.type != FileSystemEntityType.file ||
+              before.size != sizeGroup.key) {
+            continue;
+          }
+          final digest = hashFile == null
+              ? (await sha256.bind(file.openRead()).first).toString()
+              : await hashFile(file);
+          final after = await file.stat();
+          final canonicalAfter = await file.resolveSymbolicLinks();
+          // Never classify a file from a stale or mixed digest. This catches
+          // truncation, replacement, metadata changes and symlink retargeting.
+          if (after.type != FileSystemEntityType.file ||
+              after.size != before.size ||
+              after.modified != before.modified ||
+              after.changed != before.changed ||
+              canonicalAfter != canonicalBefore) {
+            continue;
+          }
+          (digestGroups[digest] ??= <DownloadEntry>[]).add(item);
+        } on FileSystemException {
+          // A file may disappear while its digest is being read.
+        }
       }
     }
     return digestGroups.values.where((x) => x.length > 1).toList();
