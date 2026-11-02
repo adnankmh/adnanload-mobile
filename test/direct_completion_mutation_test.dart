@@ -82,4 +82,36 @@ void main() {
     expect(result?.status, 'error');
     expect(result?.error, 'downloadedFileMissing');
   });
+  test('rejects a symlink retargeted during checksum verification', () async {
+    final original = await File('${root.path}/original.bin')
+        .writeAsBytes([97, 98, 99]);
+    final replacement = await File('${root.path}/replacement.bin')
+        .writeAsBytes([120, 121, 122]);
+    final link = await Link('${root.path}/current.bin').create(original.path);
+    final result = await inspectWhileHashing(File(link.path), () async {
+      await link.delete();
+      await link.create(replacement.path);
+    });
+    expect(result?.status, 'error');
+    expect(result?.error, 'verificationFailed');
+  });
+
+  test('rejects file removed after first stat without an expected digest', () async {
+    final file = await File('${root.path}/without-digest.bin')
+        .writeAsBytes([1, 2, 3]);
+    var checks = 0;
+    final result = await DirectCompletionVerifier.inspect(
+      resolvePath: () async => file.path,
+      fallbackPath: '',
+      expectedSha256: '',
+      isCurrent: () {
+        // The fourth check follows the initial stat, before the final stat.
+        if (++checks == 4) file.deleteSync();
+        return true;
+      },
+    );
+    expect(result?.status, 'error');
+    expect(result?.error, 'verificationFailed');
+  });
+
 }
