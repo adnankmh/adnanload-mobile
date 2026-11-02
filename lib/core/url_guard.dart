@@ -104,7 +104,10 @@ class UrlGuard {
   static String safeName(String name) {
     final cleaned = name
         .replaceAll(RegExp(r'[\\/<>:"|?*\x00-\x1F\x7F]'), '_')
-        .replaceAll(RegExp(r'[\u200E\u200F\u202A-\u202E\u2066-\u2069]'), '')
+        // Remove invisible direction/format controls that can disguise extensions
+        // in Android lists and shared exports. Preserve ZWNJ/ZWJ because
+        // they are meaningful in Arabic-script text and emoji sequences.
+        .replaceAll(RegExp(r'[\u00AD\u061C\u200B\u200E\u200F\u2028-\u202E\u2060-\u206F\uFEFF]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim()
         .replaceAll(RegExp(r'[. ]+$'), '');
@@ -116,7 +119,7 @@ class UrlGuard {
     // must remain portable, including COM3-COM9 and LPT3-LPT9.
     final reserved = RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$',
         caseSensitive: false);
-    final normalized = reserved.hasMatch(cleaned.split('.').first)
+    final normalized = reserved.hasMatch(cleaned.split('.').first.trimRight())
         ? '_' + cleaned
         : cleaned;
 
