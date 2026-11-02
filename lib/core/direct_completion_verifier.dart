@@ -59,16 +59,22 @@ class DirectCompletionVerifier {
         // A native completion callback is the transfer authority when no
         // checksum was provided. Recheck the file generation before trusting
         // its destination; this is not a substitute for an expected digest.
-        final after = await file.stat();
-        if (!isCurrent()) return null;
-        final canonicalAfter = await file.resolveSymbolicLinks();
-        if (!isCurrent()) return null;
-        return _sameFileGeneration(
-          before, after, canonicalBefore, canonicalAfter,
-        )
-            ? DirectCompletionResult.success(path)
-            : DirectCompletionResult(
-                path: path, status: 'error', error: 'verificationFailed');
+        try {
+          final after = await file.stat();
+          if (!isCurrent()) return null;
+          final canonicalAfter = await file.resolveSymbolicLinks();
+          if (!isCurrent()) return null;
+          return _sameFileGeneration(
+            before, after, canonicalBefore, canonicalAfter,
+          )
+              ? DirectCompletionResult.success(path)
+              : DirectCompletionResult(
+                  path: path, status: 'error', error: 'verificationFailed');
+        } catch (_) {
+          if (!isCurrent()) return null;
+          return DirectCompletionResult(
+            path: path, status: 'error', error: 'verificationFailed');
+        }
       }
       try {
         final actual = await (hashFile == null
