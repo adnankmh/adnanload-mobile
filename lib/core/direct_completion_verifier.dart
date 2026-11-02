@@ -9,6 +9,19 @@ import 'package:crypto/crypto.dart';
 class DirectCompletionVerifier {
   DirectCompletionVerifier._();
 
+  static bool _sameFileGeneration(
+    FileStat before,
+    FileStat after,
+    String canonicalBefore,
+    String canonicalAfter,
+  ) =>
+      before.type == FileSystemEntityType.file &&
+      after.type == FileSystemEntityType.file &&
+      before.size == after.size &&
+      before.modified == after.modified &&
+      before.changed == after.changed &&
+      canonicalBefore == canonicalAfter;
+
   static Future<DirectCompletionResult?> inspect({
     required Future<String> Function() resolvePath,
     required String fallbackPath,
@@ -32,13 +45,37 @@ class DirectCompletionVerifier {
       // A directory or an empty/missing file is never a completed transfer.
       // Capture file metadata before hashing: the native destination can be
       // replaced or truncated while the asynchronous digest is in progress.
+      // A path can be a symlink: retain the resolved destination so a
+      // retarget during verification cannot validate the wrong file.
+      final canonicalBefore = await file.resolveSymbolicLinks();
+      if (!isCurrent()) return null;
       final before = await file.stat();
       if (before.type != FileSystemEntityType.file || before.size <= 0) {
         if (!isCurrent()) return null;
         return DirectCompletionResult.missing(path);
       }
       if (!isCurrent()) return null;
-      if (expectedSha256.isEmpty) return DirectCompletionResult.success(path);
+      if (expectedSha256.isEmpty) {
+        // A native completion callback is the transfer authority when no
+        // checksum was provided. Recheck the file generation before trusting
+        // its destination; this is not a substitute for an expected digest.
+        try {
+          final after = await file.stat();
+          if (!isCurrent()) return null;
+          final canonicalAfter = await file.resolveSymbolicLinks();
+          if (!isCurrent()) return null;
+          return _sameFileGeneration(
+            before, after, canonicalBefore, canonicalAfter,
+          )
+              ? DirectCompletionResult.success(path)
+              : DirectCompletionResult(
+                  path: path, status: 'error', error: 'verificationFailed');
+        } catch (_) {
+          if (!isCurrent()) return null;
+          return DirectCompletionResult(
+            path: path, status: 'error', error: 'verificationFailed');
+        }
+      }
       try {
         final actual = await (hashFile == null
             ? sha256.bind(file.openRead()).first.then((digest) => digest.toString())
@@ -46,11 +83,13 @@ class DirectCompletionVerifier {
         if (!isCurrent()) return null;
         final after = await file.stat();
         if (!isCurrent()) return null;
-        // Never accept a digest computed across an unstable file. Even when a
-        // test or native callback supplies a matching digest, the destination
-        // must still be the same size and modification generation.
-        if (after.type != FileSystemEntityType.file ||
-            after.size != before.size || after.modified != before.modified) {
+        final canonicalAfter = await file.resolveSymbolicLinks();
+        if (!isCurrent()) return null;
+        // A matching digest is not sufficient if a symlink was retargeted or
+        // the underlying file was replaced while hashing.
+        if (!_sameFileGeneration(
+          before, after, canonicalBefore, canonicalAfter,
+        )) {
           return DirectCompletionResult(
             path: path, status: 'error', error: 'verificationFailed');
         }
