@@ -39,4 +39,39 @@ void main() {
       'invoice_1.pdf',
     );
   });
+
+  test('blocks Windows superscript COM/LPT devices and console aliases', () {
+    final cases = <String, String>{
+      'COM¹.txt': '_COM¹.txt',
+      'com² .log': '_com².log',
+      'LPT³': '_LPT³',
+      r'CONIN$.txt': r'_CONIN$.txt',
+      r'conout$.zip': r'_conout$.zip',
+    };
+    for (final entry in cases.entries) {
+      expect(UrlGuard.safeName(entry.key), entry.value, reason: entry.key);
+    }
+  });
+
+  test('does not overblock ordinary COM/LPT-like filenames', () {
+    for (final name in [
+      'COM0.txt',
+      'LPT⁴.txt',
+      'COM¹_backup.txt',
+      r'myCONIN$.txt',
+    ]) {
+      expect(UrlGuard.safeName(name), name, reason: name);
+    }
+  });
+
+  test('URL-derived reserved names and queue collisions stay portable', () {
+    expect(
+      UrlGuard.nameFromUrl('https://example.org/COM%C2%B3.zip'),
+      '_COM³.zip',
+    );
+    expect(
+      UrlGuard.uniqueName('COM¹.txt', {'_COM¹.txt'}),
+      '_COM¹_1.txt',
+    );
+  });
 }
