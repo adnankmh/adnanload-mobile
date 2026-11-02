@@ -156,10 +156,46 @@ class TransferPolicy {
     Duration requested;
     final secondsMatch = RegExp(r'^(\d+)(?=\s|$|[;,)])').firstMatch(value);
     if (secondsMatch != null) {
-      final seconds = int.tryParse(secondsMatch.group(1)!);
-      if (seconds == null) return null;
-      if (seconds > const Duration(days: 30).inSeconds) return null;
-      requested = Duration(seconds: seconds);
+      // Some HTTP clients join repeated Retry-After headers with commas.
+      // Never honor only the first (possibly shorter) delay: that could
+      // retry before the server's longer backoff has elapsed.
+      final values = value.contains(',')
+          ? value.split(',').map((part) => part.trim()).toList()
+          : <String>[secondsMatch.group(1)!];
+      if (values.any((part) => !RegExp(r'^\d+
+    } else {
+      final dateMatch = RegExp(
+        r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b',
+        caseSensitive: false,
+      ).firstMatch(value);
+      if (dateMatch == null) return fallback;
+      try {
+        requested = HttpDate.parse(dateMatch.group(0)!)
+            .difference(now ?? DateTime.now());
+      } catch (_) {
+        return fallback;
+      }
+    }
+    if (requested > const Duration(days: 30)) return null;
+    return requested > fallback ? requested : fallback;
+  }
+
+  static bool shouldRetry(String failure, int attempts,
+      {bool enabled = true}) => enabled && attempts >= 0 && attempts < 3 && networkTransient(failure);
+}
+).hasMatch(part))) {
+        return null; // Ambiguous combined delay: require a manual retry.
+      }
+      var longestSeconds = 0;
+      for (final part in values) {
+        final seconds = int.tryParse(part);
+        if (seconds == null ||
+            seconds > const Duration(days: 30).inSeconds) {
+          return null;
+        }
+        if (seconds > longestSeconds) longestSeconds = seconds;
+      }
+      requested = Duration(seconds: longestSeconds);
     } else {
       final dateMatch = RegExp(
         r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b',
