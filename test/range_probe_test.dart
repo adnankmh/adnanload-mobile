@@ -11,6 +11,7 @@ bool safe({
   String? contentRange = 'bytes 0-0/4096',
   int contentLength = 1,
   String? contentEncoding,
+  String? contentType,
 }) => RangeProbe.supportsParallelResponse(
   statusCode: statusCode,
   acceptRanges: acceptRanges,
@@ -18,6 +19,7 @@ bool safe({
   contentRange: contentRange,
   contentLength: contentLength,
   contentEncoding: contentEncoding,
+  contentType: contentType,
 );
 
 // Flutter unit tests use a fake HttpClient; exercise the exact response
@@ -63,6 +65,7 @@ Future<bool> probeStreamResponse({
   int declaredLength = 1,
   String contentRange = 'bytes 0-0/4096',
   String etag = '"v1"',
+  String? contentType,
 }) => RangeProbe.verifyProbeResponse(_ProbeResponse(
   body: body,
   contentLength: declaredLength,
@@ -70,6 +73,7 @@ Future<bool> probeStreamResponse({
     'accept-ranges': 'bytes',
     'etag': etag,
     'content-range': contentRange,
+    if (contentType != null) 'content-type': contentType,
   }),
 ));
 
@@ -126,6 +130,33 @@ void main() {
   test('valid body does not override unsafe range or ETag headers', () async {
     expect(await probeStreamResponse(contentRange: 'bytes 0-1/4096'), isFalse);
     expect(await probeStreamResponse(etag: 'W/"v1"'), isFalse);
+  });
+
+
+  test('multipart byteranges never enable single-representation segmentation', () async {
+    for (final value in [
+      'multipart/byteranges; boundary=abc',
+      ' MULTIPART/BYTERANGES ; boundary=xyz ',
+    ]) {
+      expect(safe(contentType: value), isFalse, reason: value);
+      expect(await probeStreamResponse(contentType: value), isFalse,
+          reason: value);
+    }
+    expect(safe(contentType: 'application/octet-stream'), isTrue);
+    expect(await probeStreamResponse(
+      contentType: 'application/octet-stream'), isTrue);
+  });
+
+  test('control characters are forbidden inside strong ETag values', () async {
+    for (final etag in [
+      '"bad\\tvalue"'.replaceAll('\\t', '\t'),
+      '"bad\\u0000value"'.replaceAll('\\u0000', '\u0000'),
+      '"bad\\u007Fvalue"'.replaceAll('\\u007F', '\u007F'),
+    ]) {
+      expect(safe(etag: etag), isFalse);
+      expect(await probeStreamResponse(etag: etag), isFalse);
+    }
+    expect(safe(etag: '"valid-utf8-مرحبا"'), isTrue);
   });
 
   test('unsafe URL never triggers a preflight request', () async {

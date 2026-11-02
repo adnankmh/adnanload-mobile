@@ -13,7 +13,7 @@ class RangeProbe {
   static final RegExp _contentRange =
       RegExp(r'^bytes 0-0/([1-9][0-9]*)$');
   static final RegExp _strongEtag =
-      RegExp(r'^"[^"\r\n]+"$');
+      RegExp(r'^"[^"\x00-\x1F\x7F]+"$');
 
   /// Pure header check so malformed and incomplete responses can be tested.
   static bool supportsParallelResponse({
@@ -23,12 +23,17 @@ class RangeProbe {
     required String? contentRange,
     required int contentLength,
     String? contentEncoding,
+    String? contentType,
   }) {
     if (statusCode != HttpStatus.partialContent || contentLength != 1) {
       return false;
     }
     if (acceptRanges?.trim().toLowerCase() != 'bytes') return false;
     if (etag == null || !_strongEtag.hasMatch(etag.trim())) return false;
+    // Multipart byte ranges are not a single raw byte representation.
+    if (contentType != null &&
+        contentType.split(';').first.trim().toLowerCase() ==
+            'multipart/byteranges') return false;
     final encoding = contentEncoding?.trim().toLowerCase();
     if (encoding != null && encoding.isNotEmpty && encoding != 'identity') {
       return false;
@@ -49,6 +54,7 @@ class RangeProbe {
       contentRange: response.headers.value('content-range'),
       contentLength: response.contentLength,
       contentEncoding: response.headers.value('content-encoding'),
+      contentType: response.headers.value('content-type'),
     )) {
       return false;
     }
