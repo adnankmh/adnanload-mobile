@@ -14,7 +14,15 @@ class BatchLinks {
       if (canonical != null) seen.add(canonical);
     }
     for (final token in text.split(RegExp(r'[\s]+'))) {
-      final cleaned = token.trim().replaceAll(RegExp(r'^[<"\x27]+|[>"\x27,;]+$'), '');
+      // Signed query parameters can legally end in commas or semicolons.
+      // Do not truncate those bytes: changing the URL can invalidate a token.
+      // Keep legacy punctuation trimming for plain links pasted from prose.
+      final unwrapped = token.trim().replaceAll(
+        RegExp(r'^[<"\x27]+|[>"\x27]+$'), '',
+      );
+      final cleaned = unwrapped.contains('?')
+          ? unwrapped
+          : unwrapped.replaceAll(RegExp(r'[,;]+$'), '');
       if (cleaned.isEmpty) continue;
       final canonical = _canonical(cleaned);
       if (canonical == null) continue;
