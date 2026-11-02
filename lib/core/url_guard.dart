@@ -119,42 +119,7 @@ class UrlGuard {
     // must remain portable, including COM3-COM9 and LPT3-LPT9.
     // Windows also reserves superscript COM/LPT digits and console aliases.
     final reserved = RegExp(
-      r'^(CON|PRN|AUX|NUL|CONIN[$]|CONOUT[$]|(?:COM|LPT)[1-9¹²³])
-    final normalized = reserved.hasMatch(cleaned.split('.').first.trimRight())
-        ? '_' + cleaned
-        : cleaned;
-
-    const maxCodeUnits = 160;
-    const maxUtf8Bytes = 240; // below common 255-byte filesystem limits
-    final dot = normalized.lastIndexOf('.');
-    final extension = dot > 0 && normalized.length - dot <= 20
-        ? normalized.substring(dot)
-        : '';
-    final originalStem = extension.isEmpty
-        ? normalized
-        : normalized.substring(0, dot);
-    final stemUnitLimit = maxCodeUnits - extension.length;
-    final stemByteLimit = maxUtf8Bytes - utf8.encode(extension).length;
-
-    final result = StringBuffer();
-    var units = 0;
-    var bytes = 0;
-    for (final rune in originalStem.runes) {
-      final character = String.fromCharCode(rune);
-      final encodedLength = utf8.encode(character).length;
-      if (units + character.length > stemUnitLimit ||
-          bytes + encodedLength > stemByteLimit) {
-        break;
-      }
-      result.write(character);
-      units += character.length;
-      bytes += encodedLength;
-    }
-    final stem = result.toString().replaceAll(RegExp(r'[. ]+$'), '');
-    return (stem.isEmpty ? 'download' : stem) + extension;
-  }
-}
-,
+      r'^(CON|PRN|AUX|NUL|CONIN[$]|CONOUT[$]|(?:COM|LPT)[1-9¹²³])$',
       caseSensitive: false,
     );
     final normalized = reserved.hasMatch(cleaned.split('.').first.trimRight())
