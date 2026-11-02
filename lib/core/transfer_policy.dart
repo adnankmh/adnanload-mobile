@@ -162,28 +162,7 @@ class TransferPolicy {
       final values = value.contains(',')
           ? value.split(',').map((part) => part.trim()).toList()
           : <String>[secondsMatch.group(1)!];
-      if (values.any((part) => !RegExp(r'^\d+
-    } else {
-      final dateMatch = RegExp(
-        r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b',
-        caseSensitive: false,
-      ).firstMatch(value);
-      if (dateMatch == null) return fallback;
-      try {
-        requested = HttpDate.parse(dateMatch.group(0)!)
-            .difference(now ?? DateTime.now());
-      } catch (_) {
-        return fallback;
-      }
-    }
-    if (requested > const Duration(days: 30)) return null;
-    return requested > fallback ? requested : fallback;
-  }
-
-  static bool shouldRetry(String failure, int attempts,
-      {bool enabled = true}) => enabled && attempts >= 0 && attempts < 3 && networkTransient(failure);
-}
-).hasMatch(part))) {
+      if (values.any((part) => !RegExp(r'^\d+$').hasMatch(part))) {
         return null; // Ambiguous combined delay: require a manual retry.
       }
       var longestSeconds = 0;
