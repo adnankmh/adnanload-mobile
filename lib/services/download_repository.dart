@@ -277,9 +277,11 @@ class DownloadRepository extends ChangeNotifier {
   bool _retryMediaIfTransient(DownloadEntry item, String reason) {
     if (!TransferPolicy.shouldRetry(reason, item.retryAttempts,
         enabled: automaticRetry) || item.status == 'canceled') return false;
-    item.retryAttempts++;
-    item.retryAt = DateTime.now().add(
-      TransferPolicy.retryDelay(item.retryAttempts)).millisecondsSinceEpoch;
+    final nextAttempt = item.retryAttempts + 1;
+    final delay = TransferPolicy.retryDelayForFailure(reason, nextAttempt);
+    if (delay == null) return false; // honor excessive server backoff
+    item.retryAttempts = nextAttempt;
+    item.retryAt = DateTime.now().add(delay).millisecondsSinceEpoch;
     item.status = 'waiting';
     item.autoQueue = true;
     item.error = ''; // avoid storing repeated URL-bearing extractor errors
