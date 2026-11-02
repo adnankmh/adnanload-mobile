@@ -102,13 +102,15 @@ class TransferPolicy {
     final text = failure.toLowerCase();
     // Extractors commonly report "HTTP Error 429", while native clients can
     // report "status code: 503". Plain substring matching missed both forms.
+    // Recognize HTTP/1.1, HTTP/2 and HTTP/3 status lines as well as
+    // extractor-style errors; do not mistake stale ranges for network outages.
     final codes = RegExp(
-      r'\b(?:http(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
+      r'\b(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
     ).allMatches(text).map((match) => int.parse(match.group(1)!)).toSet();
     // A stale partial download (412/416) needs an explicit fresh request;
     // automatically retrying the same range can repeatedly corrupt a resume.
     if (codes.any((code) => const {400, 401, 403, 404, 410, 412, 416, 451}.contains(code)) ||
-        RegExp(r'\b(drm|widevine)\b|login required|sign in|private video|unsupported url|precondition failed|range not satisfiable|no space left|disk full|enospc').hasMatch(text)) {
+        RegExp(r'\b(drm|widevine)\b|login required|sign in|private video|unsupported url|precondition failed|range not satisfiable|content[- ]range (?:mismatch|invalid)|(?:etag|checksum|hash) mismatch|no space left|disk full|enospc').hasMatch(text)) {
       return false;
     }
     if (codes.any((code) => const {408, 425, 429, 500, 502, 503, 504}.contains(code))) {
