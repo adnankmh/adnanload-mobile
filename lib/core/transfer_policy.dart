@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../models/download_entry.dart';
 import 'url_guard.dart';
 
@@ -132,6 +134,47 @@ class TransferPolicy {
     const seconds = [10, 30, 90];
     final index = (attempt - 1).clamp(0, seconds.length - 1).toInt();
     return Duration(seconds: seconds[index]);
+  }
+
+  /// Honor explicit server backoff for HTTP 429/503 extractor failures.
+  /// A Retry-After value may be seconds or an RFC 7231 HTTP-date. Never
+  /// retry earlier than the existing exponential delay, and decline automatic
+  /// retries for delays beyond 30 days rather than violating the server hint.
+  /// Other statuses and malformed hints retain the existing retry policy.
+  static Duration? retryDelayForFailure(String failure, int attempt,
+      {DateTime? now}) {
+    final fallback = retryDelay(attempt);
+    final rateLimited = RegExp(
+      r'\b(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(?:429|503)\b',
+      caseSensitive: false,
+    ).hasMatch(failure);
+    if (!rateLimited) return fallback;
+    final header = RegExp(r'\bretry-after\s*:\s*([^\r\n]+)',
+        caseSensitive: false).firstMatch(failure);
+    if (header == null) return fallback;
+    final value = header.group(1)!.trim();
+    Duration requested;
+    final secondsMatch = RegExp(r'^(\d+)(?=\s|$|[;,)])').firstMatch(value);
+    if (secondsMatch != null) {
+      final seconds = int.tryParse(secondsMatch.group(1)!);
+      if (seconds == null) return null;
+      if (seconds > const Duration(days: 30).inSeconds) return null;
+      requested = Duration(seconds: seconds);
+    } else {
+      final dateMatch = RegExp(
+        r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b',
+        caseSensitive: false,
+      ).firstMatch(value);
+      if (dateMatch == null) return fallback;
+      try {
+        requested = HttpDate.parse(dateMatch.group(0)!)
+            .difference(now ?? DateTime.now());
+      } catch (_) {
+        return fallback;
+      }
+    }
+    if (requested > const Duration(days: 30)) return null;
+    return requested > fallback ? requested : fallback;
   }
 
   static bool shouldRetry(String failure, int attempts,
