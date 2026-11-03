@@ -85,6 +85,14 @@ class RangeProbe {
       'awsaccesskeyid', 'xamzsignature', 'xamzcredential',
       'xamzsecuritytoken', 'xgoogsignature', 'xgoogcredential',
       'googleaccessid',
+      // AWS SigV4 and Google V4 query signing metadata. Even when a CDN
+      // strips the signature field, a speculative GET can spend a short-lived
+      // authorization grant before Android starts the actual download.
+      'xamzalgorithm', 'xamzdate', 'xamzexpires', 'xamzsignedheaders',
+      'xgoogalgorithm', 'xgoogdate', 'xgoogexpires',
+      'xgoogsignedheaders',
+      // Akamai and other CDNs use opaque token/HMAC parameter names.
+      'hdnts', 'hdntl', 'authkey', 'hmac',
     };
     for (final name in url.queryParameters.keys) {
       final normalized = name.toLowerCase().replaceAll(RegExp(r'[-_]'), '');
