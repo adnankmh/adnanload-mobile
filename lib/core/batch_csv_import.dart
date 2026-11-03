@@ -24,6 +24,8 @@ class BatchCsvImport {
       row = <String>[];
     }
 
+    final delimiter = _detectDelimiter(csv);
+
     for (var i = 0; i < csv.length; i++) {
       final char = csv[i];
       if (quoted) {
@@ -38,7 +40,7 @@ class BatchCsvImport {
         } else {
           field.write(char);
         }
-      } else if (afterQuote && char != ',' && char != '\r' && char != '\n') {
+      } else if (afterQuote && char != delimiter && char != '\r' && char != '\n') {
         // RFC 4180: a closing quote must be followed by a delimiter or
         // record end. Ignore only harmless formatting whitespace; never
         // silently append text to a previously quoted URL.
@@ -49,7 +51,7 @@ class BatchCsvImport {
         quoted = true;
       } else if (char == '"') {
         throw const FormatException('Malformed CSV quoting');
-      } else if (char == ',') {
+      } else if (char == delimiter) {
         finishField();
       } else if (char == '\r' || char == '\n') {
         finishRow();
@@ -114,6 +116,54 @@ class BatchCsvImport {
       }
     }
     return urls.join('\n');
+  }
+
+  /// Excel and regional exports often use semicolons instead of commas.
+  /// Only select that dialect when the first record supplies a recognizable
+  /// URL heading or a URL in a later column. A single signed URL containing
+  /// semicolons must remain intact rather than being mistaken for a CSV row.
+  static String _detectDelimiter(String csv) {
+    var quoted = false;
+    var commas = 0;
+    var semicolons = 0;
+    final firstRecord = StringBuffer();
+    for (var i = 0; i < csv.length; i++) {
+      final char = csv[i];
+      if (char == '"') {
+        if (quoted && i + 1 < csv.length && csv[i + 1] == '"') {
+          firstRecord.write('""');
+          i++;
+          continue;
+        }
+        quoted = !quoted;
+      }
+      if (!quoted && (char == '\\r' || char == '\\n')) break;
+      firstRecord.write(char);
+      if (!quoted) {
+        if (char == ',') commas++;
+        if (char == ';') semicolons++;
+      }
+    }
+    if (commas > 0 || semicolons == 0) return ',';
+
+    final cells = firstRecord.toString().split(';');
+    const headings = <String>{
+      'downloadurl', 'downloadlink', 'fileurl', 'filelink',
+      'url', 'link', 'sourceurl', 'sourcelink',
+      'رابطالتحميل', 'رابطالتنزيل', 'رابطالملف', 'الرابط',
+    };
+    final recognizedHeader = cells.any((cell) => headings.contains(
+      cell.trim().replaceAll('"', '').toLowerCase().replaceAll(
+        RegExp(r'[\\s_-]+'), '',
+      ),
+    ));
+    if (recognizedHeader) return ';';
+    // Headerless lists with a title followed by a URL are unambiguous.
+    // Do not split a URL-first record just because its signed query contains
+    // semicolons: those bytes may be part of a one-time authorization token.
+    if (cells.skip(1).any((cell) =>
+        _looksLikeHttpUrl(cell.trim().replaceAll('"', '')))) return ';';
+    return ',';
   }
 
   static bool _looksLikeHttpUrl(String value) {
