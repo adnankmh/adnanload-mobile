@@ -574,9 +574,8 @@ class DownloadRepository extends ChangeNotifier {
     _pumping = true;
     try {
       final now = DateTime.now().millisecondsSinceEpoch;
-      final awaiting = _items.where((x) => x.status == 'waiting' && x.autoQueue && !x.scheduledExternally &&
-        (x.scheduledAt == 0 || x.scheduledAt <= now) &&
-        (x.retryAt == 0 || x.retryAt <= now)).toList()
+      final awaiting = _items.where((x) =>
+          TransferPolicy.readyToDispatch(x, now)).toList()
         ..sort((a,b) => a.priority.compareTo(b.priority));
       final activeDirectEntries = _items.where((x) =>
           x.kind == 'direct' && (x.nativeQueued || x.status == 'submitting'));
@@ -590,6 +589,11 @@ class DownloadRepository extends ChangeNotifier {
       if (storageLimitMb > 0 &&
           await StorageAudit.recordedBytes(_items) >= storageLimitMb*1024*1024) return;
       for (final item in awaiting) {
+        // The storage quota check above can suspend this pump. The user may
+        // have paused, canceled, removed or rescheduled a snapshotted job.
+        // Never submit a stale entry to the native downloader.
+        if (!_items.contains(item) || !TransferPolicy.readyToDispatch(
+            item, DateTime.now().millisecondsSinceEpoch)) continue;
         // The network/battery preflight is required for on-device media tasks.
         // Direct tasks already have an OS-managed Wi-Fi constraint.
         if (item.kind != 'direct' && !mediaPolicyReady) continue;
