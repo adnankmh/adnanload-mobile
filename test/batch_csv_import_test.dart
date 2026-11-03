@@ -112,4 +112,45 @@ void main() {
     expect(BatchLinks.parse(BatchCsvImport.extractUrls(decoded)),
         ['https://example.org/a.pdf']);
   });
+
+
+  test('prefers Download Link over Source URL when both are present', () {
+    const csv = 'Source URL,Download Link,Title\n'
+        'https://example.org/page/1,https://cdn.example.org/one.zip,One\n'
+        'https://example.org/page/2,https://cdn.example.org/two.pdf,Two\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
+      'https://cdn.example.org/one.zip',
+      'https://cdn.example.org/two.pdf',
+    ]);
+  });
+
+  test('prefers Arabic download header over a generic URL column', () {
+    const csv = 'URL,رابط التنزيل\n'
+        'https://example.org/watch/1,https://cdn.example.org/video.mp4\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
+      'https://cdn.example.org/video.mp4',
+    ]);
+  });
+
+  test('recognizes File Link and keeps source-only CSV compatibility', () {
+    const fileCsv = 'Source URL,File Link\n'
+        'https://example.org/page,https://cdn.example.org/file.zip\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(fileCsv)), [
+      'https://cdn.example.org/file.zip',
+    ]);
+    const sourceCsv = 'Name,Source URL\n'
+        'One,https://example.org/only-source.zip\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(sourceCsv)), [
+      'https://example.org/only-source.zip',
+    ]);
+  });
+
+  test('explicit download URL wins over generic URL without changing query', () {
+    const csv = 'URL,Download URL\n'
+        'https://example.org/page,'
+        '"https://cdn.example.org/file.zip?signature=a,b;"\n';
+    expect(BatchLinks.parse(BatchCsvImport.extractUrls(csv)), [
+      'https://cdn.example.org/file.zip?signature=a,b;',
+    ]);
+  });
 }
