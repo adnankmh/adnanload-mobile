@@ -15,7 +15,7 @@ void main() {
     ]) {
       expect(
         TransferPolicy.retryDelayForFailure(
-          'HTTP Error 429\\nRetry-After: $header', 1, now: now),
+          'HTTP Error 429\nRetry-After: $header', 1, now: now),
         isNull,
         reason: header,
       );
@@ -32,7 +32,7 @@ void main() {
     ]) {
       expect(
         TransferPolicy.retryDelayForFailure(
-          'HTTP/2 503\\nRetry-After: $header', 1),
+          'HTTP/2 503\nRetry-After: $header', 1),
         isNull,
         reason: header,
       );
@@ -44,22 +44,22 @@ void main() {
     final date = HttpDate.format(now.add(const Duration(minutes: 5)));
     expect(
       TransferPolicy.retryDelayForFailure(
-        'HTTP Error 429\\nRetry-After: 120', 1),
+        'HTTP Error 429\nRetry-After: 120', 1),
       const Duration(seconds: 120),
     );
     expect(
       TransferPolicy.retryDelayForFailure(
-        'HTTP Error 503\\nRetry-After: 5, 180, 60', 2),
+        'HTTP Error 503\nRetry-After: 5, 180, 60', 2),
       const Duration(seconds: 180),
     );
     expect(
       TransferPolicy.retryDelayForFailure(
-        'HTTP Error 429\\nRetry-After: $date', 1, now: now),
+        'HTTP Error 429\nRetry-After: $date', 1, now: now),
       const Duration(minutes: 5),
     );
     expect(
       TransferPolicy.retryDelayForFailure(
-        'HTTP Error 429\\nRetry-After: 5', 3),
+        'HTTP Error 429\nRetry-After: 5', 3),
       const Duration(seconds: 90),
     );
   });
@@ -67,12 +67,12 @@ void main() {
   test('unknown hints and non-rate-limit failures keep retry policy', () {
     expect(
       TransferPolicy.retryDelayForFailure(
-        'HTTP Error 429\\nRetry-After: unknown', 1),
+        'HTTP Error 429\nRetry-After: unknown', 1),
       const Duration(seconds: 10),
     );
     expect(
       TransferPolicy.retryDelayForFailure(
-        'HTTP Error 500\\nRetry-After: 600 seconds', 2),
+        'HTTP Error 500\nRetry-After: 600 seconds', 2),
       const Duration(seconds: 30),
     );
   });
