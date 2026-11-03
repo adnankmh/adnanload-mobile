@@ -144,20 +144,33 @@ class BatchCsvImport {
         if (char == ';') semicolons++;
       }
     }
-    if (commas > 0 || semicolons == 0) return ',';
+    if (semicolons == 0) return ',';
 
-    final cells = firstRecord.toString().split(';');
     const headings = <String>{
       'downloadurl', 'downloadlink', 'fileurl', 'filelink',
       'url', 'link', 'sourceurl', 'sourcelink',
       'رابطالتحميل', 'رابطالتنزيل', 'رابطالملف', 'الرابط',
     };
-    final recognizedHeader = cells.any((cell) => headings.contains(
-      cell.trim().replaceAll('"', '').toLowerCase().replaceAll(
-        RegExp(r'[\s_-]+'), '',
-      ),
-    ));
-    if (recognizedHeader) return ';';
+    bool hasHeader(String delimiter) {
+      final cells = firstRecord.toString().split(delimiter);
+      return cells.length > 1 && cells.any((cell) => headings.contains(
+        cell.trim().replaceAll('"', '').toLowerCase().replaceAll(
+          RegExp(r'[\s_-]+'), '',
+        ),
+      ));
+    }
+
+    // A comma inside a semicolon CSV's descriptive heading (e.g.
+    // "Title, description;Download URL") is not evidence of comma CSV.
+    // Prefer an unambiguous recognized heading over punctuation counts.
+    // When both dialects appear plausible, retain the legacy comma default.
+    final semicolonHeader = hasHeader(';');
+    final commaHeader = commas > 0 && hasHeader(',');
+    if (semicolonHeader && !commaHeader) return ';';
+    if (commas > 0) return ',';
+    if (semicolonHeader) return ';';
+
+    final cells = firstRecord.toString().split(';');
     // Headerless lists with a title followed by a URL are unambiguous.
     // Do not split a URL-first record just because its signed query contains
     // semicolons: those bytes may be part of a one-time authorization token.
