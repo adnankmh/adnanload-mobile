@@ -149,48 +149,59 @@ class TransferPolicy {
       caseSensitive: false,
     ).hasMatch(failure);
     if (!rateLimited) return fallback;
-    final header = RegExp(r'\bretry-after\s*:\s*([^\r\n]+)',
-        caseSensitive: false).firstMatch(failure);
-    if (header == null) return fallback;
-    final value = header.group(1)!.trim();
-    Duration requested;
-    if (RegExp(r'^\d').hasMatch(value)) {
-      // A numeric hint must be an entire number or a comma-separated list
-      // of numbers. Never accept a numeric prefix of a malformed value:
-      // "600 seconds" or "120; extra" could otherwise retry too early.
-      // Some HTTP clients join repeated Retry-After headers with commas.
-      final values = value.split(',').map((part) => part.trim()).toList();
-      if (values.any((part) => !RegExp(r'^\d+$').hasMatch(part))) {
-        return null; // Ambiguous combined delay: require a manual retry.
-      }
-      var longestSeconds = 0;
-      for (final part in values) {
-        final seconds = int.tryParse(part);
-        if (seconds == null ||
-            seconds > const Duration(days: 30).inSeconds) {
+    // Extractors and HTTP clients may report multiple Retry-After lines.
+    // Using only the first can retry before a later, longer server deadline.
+    final headers = RegExp(
+      r'\bretry-after[ \t]*:[ \t]*([^\r\n]*)',
+      caseSensitive: false,
+    ).allMatches(failure).toList();
+    if (headers.isEmpty) return fallback;
+    // Malformed or excessive header sets require an explicit manual retry.
+    if (headers.length > 16) return null;
+    var longest = fallback;
+    for (final header in headers) {
+      final value = header.group(1)!.trim();
+      if (value.isEmpty) return null;
+      Duration requested;
+      if (RegExp(r'^\d').hasMatch(value)) {
+        // A numeric hint must be a complete number or a comma-separated
+        // numeric list; never accept a prefix such as "600 seconds".
+        final values = value.split(',').map((part) => part.trim()).toList();
+        if (values.any((part) => !RegExp(r'^\d+$').hasMatch(part))) {
           return null;
         }
-        if (seconds > longestSeconds) longestSeconds = seconds;
+        var longestSeconds = 0;
+        for (final part in values) {
+          final seconds = int.tryParse(part);
+          if (seconds == null ||
+              seconds > const Duration(days: 30).inSeconds) {
+            return null;
+          }
+          if (seconds > longestSeconds) longestSeconds = seconds;
+        }
+        requested = Duration(seconds: longestSeconds);
+      } else {
+        final dateMatch = RegExp(
+          r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT',
+          caseSensitive: false,
+        ).firstMatch(value);
+        // Preserve the previous fallback for a single unrecognized hint,
+        // but never ignore an ambiguous member of a repeated header set.
+        if (dateMatch == null) {
+          return headers.length == 1 ? fallback : null;
+        }
+        if (dateMatch.end != value.length) return null;
+        try {
+          requested = HttpDate.parse(value)
+              .difference(now ?? DateTime.now());
+        } catch (_) {
+          return headers.length == 1 ? fallback : null;
+        }
       }
-      requested = Duration(seconds: longestSeconds);
-    } else {
-      final dateMatch = RegExp(
-        r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT',
-        caseSensitive: false,
-      ).firstMatch(value);
-      if (dateMatch == null) return fallback;
-      // HTTP-date itself contains a comma. A second comma-delimited hint
-      // or trailing annotation must not be silently discarded.
-      if (dateMatch.end != value.length) return null;
-      try {
-        requested = HttpDate.parse(value)
-            .difference(now ?? DateTime.now());
-      } catch (_) {
-        return fallback;
-      }
+      if (requested > const Duration(days: 30)) return null;
+      if (requested > longest) longest = requested;
     }
-    if (requested > const Duration(days: 30)) return null;
-    return requested > fallback ? requested : fallback;
+    return longest;
   }
 
   static bool shouldRetry(String failure, int attempts,
