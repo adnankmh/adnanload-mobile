@@ -43,6 +43,50 @@ void main() {
     expect(signed.queryParameters['signature'], 'one-time');
   });
 
+  test('AWS and Google V4 signing metadata disables speculative GET', () {
+    for (final query in [
+      'X-Amz-Algorithm=AWS4-HMAC-SHA256',
+      'X-Amz-Date=20261103T120000Z',
+      'X-Amz-Expires=60',
+      'X-Amz-SignedHeaders=host',
+      'X-Goog-Algorithm=GOOG4-RSA-SHA256',
+      'X-Goog-Date=20261103T120000Z',
+      'X-Goog-Expires=60',
+      'X-Goog-SignedHeaders=host',
+      '%58-Amz-Algorithm=AWS4-HMAC-SHA256',
+    ]) {
+      final url = Uri.parse('https://cdn.example.org/file.bin?$query');
+      expect(RangeProbe.avoidPreflightForSignedUrl(url), isTrue,
+          reason: query);
+    }
+  });
+
+  test('Akamai and HMAC CDN token parameters disable preflight', () {
+    for (final query in [
+      'hdnts=exp%3D123%7Ehmac%3Dabc',
+      'HDNTL=exp%3D123%7Ehmac%3Dabc',
+      'auth_key=opaque',
+      'HMAC=opaque',
+    ]) {
+      final url = Uri.parse('https://cdn.example.org/file.bin?$query');
+      expect(RangeProbe.avoidPreflightForSignedUrl(url), isTrue,
+          reason: query);
+    }
+  });
+
+  test('signing metadata alone skips network preflight', () async {
+    final url = Uri.parse(
+        'https://downloads.example.invalid/archive.zip?X-Goog-Date=20261103T120000Z');
+    expect(await RangeProbe.supportsSafeParallelDownload(url), isFalse);
+    expect(url.queryParameters['X-Goog-Date'], '20261103T120000Z');
+  });
+
+  test('unrelated algorithm and date parameters do not disable preflight', () {
+    final url = Uri.parse(
+        'https://cdn.example.org/file.bin?algorithm=sha256&date=2026-11-03&download=1');
+    expect(RangeProbe.avoidPreflightForSignedUrl(url), isFalse);
+  });
+
   test('unrelated parameter values are not treated as auth names', () {
     final url = Uri.parse(
       'https://cdn.example.org/file?filename=token&download=signature');
