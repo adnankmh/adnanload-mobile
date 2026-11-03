@@ -154,14 +154,12 @@ class TransferPolicy {
     if (header == null) return fallback;
     final value = header.group(1)!.trim();
     Duration requested;
-    final secondsMatch = RegExp(r'^(\d+)(?=\s|$|[;,)])').firstMatch(value);
-    if (secondsMatch != null) {
+    if (RegExp(r'^\d').hasMatch(value)) {
+      // A numeric hint must be an entire number or a comma-separated list
+      // of numbers. Never accept a numeric prefix of a malformed value:
+      // "600 seconds" or "120; extra" could otherwise retry too early.
       // Some HTTP clients join repeated Retry-After headers with commas.
-      // Never honor only the first (possibly shorter) delay: that could
-      // retry before the server's longer backoff has elapsed.
-      final values = value.contains(',')
-          ? value.split(',').map((part) => part.trim()).toList()
-          : <String>[secondsMatch.group(1)!];
+      final values = value.split(',').map((part) => part.trim()).toList();
       if (values.any((part) => !RegExp(r'^\d+$').hasMatch(part))) {
         return null; // Ambiguous combined delay: require a manual retry.
       }
@@ -177,12 +175,15 @@ class TransferPolicy {
       requested = Duration(seconds: longestSeconds);
     } else {
       final dateMatch = RegExp(
-        r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b',
+        r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT',
         caseSensitive: false,
       ).firstMatch(value);
       if (dateMatch == null) return fallback;
+      // HTTP-date itself contains a comma. A second comma-delimited hint
+      // or trailing annotation must not be silently discarded.
+      if (dateMatch.end != value.length) return null;
       try {
-        requested = HttpDate.parse(dateMatch.group(0)!)
+        requested = HttpDate.parse(value)
             .difference(now ?? DateTime.now());
       } catch (_) {
         return fallback;
