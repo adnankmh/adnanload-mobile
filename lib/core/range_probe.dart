@@ -72,10 +72,32 @@ class RangeProbe {
     }
   }
 
+  /// Some CDN URLs use short-lived or single-use signed query parameters.
+  /// A separate range GET can consume their authorization before the native
+  /// downloader starts. Prefer a single native stream without preflight.
+  ///
+  /// This is intentionally conservative and only examines parameter *names*:
+  /// opaque signed values must never be logged or modified.
+  static bool avoidPreflightForSignedUrl(Uri url) {
+    const signedKeys = <String>{
+      'signature', 'sig', 'token', 'accesstoken', 'authorization',
+      'auth', 'jwt', 'expires', 'policy', 'keypairid',
+      'awsaccesskeyid', 'xamzsignature', 'xamzcredential',
+      'xamzsecuritytoken', 'xgoogsignature', 'xgoogcredential',
+      'googleaccessid',
+    };
+    for (final name in url.queryParameters.keys) {
+      final normalized = name.toLowerCase().replaceAll(RegExp(r'[-_]'), '');
+      if (signedKeys.contains(normalized)) return true;
+    }
+    return false;
+  }
+
   /// Probe only validated public HTTP(S) URLs; never follow probe redirects.
   /// This does not change the native downloader's own retry/resume handling.
   static Future<bool> supportsSafeParallelDownload(Uri url) async {
-    if (UrlGuard.validate(url.toString()) == null) return false;
+    if (UrlGuard.validate(url.toString()) == null ||
+        avoidPreflightForSignedUrl(url)) return false;
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 8)
       ..autoUncompress = false;
