@@ -39,6 +39,25 @@ class TransferPolicy {
       (item.scheduledAt == 0 || item.scheduledAt <= now) &&
       (item.retryAt == 0 || item.retryAt <= now);
 
+  /// A direct task must still be in the same submitting state after each
+  /// asynchronous native lookup, notification request and range probe.
+  /// Cancellation revokes permission to enqueue even before Android finishes
+  /// canceling an already-existing task.
+  static bool directSubmissionStillAllowed(DownloadEntry item,
+      {required bool isTracked}) =>
+      isTracked && item.kind == 'direct' &&
+      item.status == 'submitting' && !item.scheduledExternally &&
+      !item.nativeQueued;
+
+  /// Mark cancellation synchronously before awaiting platform cleanup.
+  /// Otherwise an in-flight range probe or native enqueue can revive the job.
+  static void markCanceled(DownloadEntry item) {
+    item.status = 'canceled';
+    item.autoQueue = false;
+    item.nativeQueued = false;
+    item.retryAt = 0;
+  }
+
   /// Explicitly resume a locally deferred direct job. Native Android tasks
   /// must be resumed through FileDownloader instead of being re-enqueued.
   /// A manual resume also overrides a future in-app fallback schedule.
