@@ -137,7 +137,7 @@ class BatchCsvImport {
         }
         quoted = !quoted;
       }
-      if (!quoted && (char == '\\r' || char == '\\n')) break;
+      if (!quoted && (char == '\r' || char == '\n')) break;
       firstRecord.write(char);
       if (!quoted) {
         if (char == ',') commas++;
@@ -154,7 +154,7 @@ class BatchCsvImport {
     };
     final recognizedHeader = cells.any((cell) => headings.contains(
       cell.trim().replaceAll('"', '').toLowerCase().replaceAll(
-        RegExp(r'[\\s_-]+'), '',
+        RegExp(r'[\s_-]+'), '',
       ),
     ));
     if (recognizedHeader) return ';';
