@@ -64,12 +64,26 @@ class BatchCsvImport {
     if (field.length > 0 || row.isNotEmpty) finishRow();
     if (rows.isEmpty) throw const FormatException('CSV file is empty');
 
-    const headers = {'url', 'link', 'downloadurl', 'sourceurl', 'fileurl', 'الرابط'};
     final first = rows.first;
-    final headerIndex = first.indexWhere((cell) =>
-        headers.contains(cell.trim().toLowerCase().replaceAll(
+    // An export can contain both a page/source URL and the actual download
+    // URL. Prefer an explicitly named download column regardless of order;
+    // otherwise the first URL-looking column can enqueue the wrong resource.
+    // Retain generic and source-only headers for existing CSV files.
+    const headerPriorities = <Set<String>>[
+      {'downloadurl', 'downloadlink', 'رابطالتحميل', 'رابطالتنزيل'},
+      {'fileurl', 'filelink', 'رابطالملف'},
+      {'url', 'link', 'الرابط'},
+      {'sourceurl', 'sourcelink'},
+    ];
+    final normalizedHeaders = first.map((cell) =>
+        cell.trim().toLowerCase().replaceAll(
           RegExp(r'[\s_-]+'), '',
-        )));
+        )).toList();
+    var headerIndex = -1;
+    for (final names in headerPriorities) {
+      headerIndex = normalizedHeaders.indexWhere(names.contains);
+      if (headerIndex >= 0) break;
+    }
     var column = headerIndex < 0 ? 0 : headerIndex;
     var start = headerIndex < 0 ? 0 : 1;
     if (headerIndex < 0) {
