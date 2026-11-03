@@ -632,18 +632,25 @@ class DownloadRepository extends ChangeNotifier {
         item.scheduledAt = 0;
       }
       if (item.nativeQueued) return;
-      // WorkManager may have launched this exact task while the user pressed
-      // Start. The native task id provides a second duplicate guard.
-      if (await bd.FileDownloader().taskForId(item.id) != null) {
+      bool stillSubmitting() => TransferPolicy.directSubmissionStillAllowed(
+        item, isTracked: _items.contains(item),
+      );
+      if (!stillSubmitting()) return;
+      // Native lookups and permission prompts are asynchronous. Cancel may
+      // happen while either is pending; never revive a canceled task.
+      final existing = await bd.FileDownloader().taskForId(item.id);
+      if (!stillSubmitting()) return;
+      if (existing != null) {
         item.nativeQueued = true;
         notifyListeners(); _persistSoon();
         return;
       }
       await _ensureNotificationPermission();
-      item.status = 'submitting';
+      if (!stillSubmitting()) return;
       notifyListeners();
       final chunks = parallelChunks > 1 && await RangeProbe.supportsSafeParallelDownload(Uri.parse(item.url))
           ? parallelChunks : 1;
+      if (!stillSubmitting()) return;
       final task = bd.ParallelDownloadTask(
         taskId: item.id, url: item.url, filename: item.name,
         directory: 'ADNANLOAD', baseDirectory: bd.BaseDirectory.applicationDocuments,
@@ -657,11 +664,25 @@ class DownloadRepository extends ChangeNotifier {
         // Resolve the canonical destination from the same native Task.
         // Android and plugin versions may choose different internal roots.
         item.path = await task.filePath();
+        if (!stillSubmitting()) return;
         final queued = await bd.FileDownloader().enqueue(task);
         if (!queued) throw StateError('Unable to enqueue download');
+        // Cancel may have raced the native enqueue itself. A second native
+        // cancellation closes that window even if the earlier cancel call
+        // ran before Android registered the task.
+        if (!_items.contains(item) || item.status == 'canceled') {
+          await bd.FileDownloader().cancelTaskWithId(item.id);
+          return;
+        }
         _event('Native download successfully queued');
-        item.status = 'waiting'; item.nativeQueued = true;
+        // A native status callback may have arrived before enqueue returned.
+        // Never replace a running or failed state with stale "waiting".
+        if (const {'submitting', 'waiting', 'running'}.contains(item.status)) {
+          item.nativeQueued = true;
+          if (item.status == 'submitting') item.status = 'waiting';
+        }
       } catch (e) {
+        if (!_items.contains(item) || item.status == 'canceled') return;
         item.status = 'error'; item.error = 'nativeQueueFailed'; item.nativeQueued = false;
         _event('Native enqueue failed');
         unawaited(_pump());
@@ -785,18 +806,25 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   Future<void> cancel(DownloadEntry item) async {
-    if (item.scheduledExternally) {
-      await AndroidScheduleService.cancel(item.id);
-      item.scheduledExternally = false;
-    }
-    if (item.kind == 'direct') {
-      await bd.FileDownloader().cancelTaskWithId(item.id);
-    } else if (_initializedMedia) {
-      await YoutubeDLFlutter.instance.cancelDownload(item.id);
-    }
+    if (!_items.contains(item)) return;
+    // Revoke the Dart-side submission immediately. Platform cancellation may
+    // await a task that has not yet been registered by an in-flight enqueue.
+    TransferPolicy.markCanceled(item);
     _foregroundRequestIds.remove(item.id);
-    item.status = 'canceled'; item.autoQueue = false; item.nativeQueued = false; item.retryAt = 0;
-    notifyListeners(); _persistSoon(); unawaited(_pump());
+    notifyListeners(); _persistSoon();
+    try {
+      if (item.scheduledExternally) {
+        await AndroidScheduleService.cancel(item.id);
+        item.scheduledExternally = false;
+      }
+      if (item.kind == 'direct') {
+        await bd.FileDownloader().cancelTaskWithId(item.id);
+      } else if (_initializedMedia) {
+        await YoutubeDLFlutter.instance.cancelDownload(item.id);
+      }
+    } finally {
+      notifyListeners(); _persistSoon(); unawaited(_pump());
+    }
   }
 
   Future<void> retry(DownloadEntry item) async {
