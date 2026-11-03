@@ -30,6 +30,15 @@ class TransferPolicy {
         (counts[host] ?? 0) < maxPerHost;
   }
 
+  /// The queue takes a snapshot before awaiting storage checks. Revalidate
+  /// immediately before native submission so a later pause, cancel or schedule
+  /// edit cannot start work from that stale snapshot.
+  static bool readyToDispatch(DownloadEntry item, int now) =>
+      item.status == 'waiting' && item.autoQueue &&
+      !item.scheduledExternally &&
+      (item.scheduledAt == 0 || item.scheduledAt <= now) &&
+      (item.retryAt == 0 || item.retryAt <= now);
+
   /// Explicitly resume a locally deferred direct job. Native Android tasks
   /// must be resumed through FileDownloader instead of being re-enqueued.
   /// A manual resume also overrides a future in-app fallback schedule.
