@@ -10,7 +10,12 @@ class MediaDetector {
     const add = (value) => {
       if (!value || found.size >= 12) return;
       try { const u = new URL(value, document.baseURI);
-        if (u.protocol === 'https:' || u.protocol === 'http:') found.add(u.href);
+        if (u.protocol === 'https:' || u.protocol === 'http:') {
+          // Fragments are player state, not part of the downloaded resource.
+          // Deduplicate before the 12-candidate DOM limit is applied.
+          u.hash = '';
+          found.add(u.href);
+        }
       } catch (_) {}
     };
     document.querySelectorAll('video[src],video source[src],audio[src],audio source[src],a[download]')
@@ -39,12 +44,16 @@ class MediaDetector {
     } catch (_) {return const [];} 
     if(parsed is! List) return const [];
     final urls = <String>[];
+    final seen = <String>{};
     for(final item in parsed) {
       if (item is! String || item.length > 2048) continue;
       final uri=UrlGuard.validate(item);
       if (uri==null) continue;
-      final url=uri.toString();
-      if (!urls.contains(url)) urls.add(url);
+      // Keep signed query bytes intact; only discard client-side anchors.
+      final validated = uri.toString();
+      final fragment = validated.indexOf('#');
+      final url = fragment < 0 ? validated : validated.substring(0, fragment);
+      if (seen.add(url)) urls.add(url);
       if (urls.length>=12)break;
     }
     return urls;
