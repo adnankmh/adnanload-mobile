@@ -5,6 +5,14 @@ import 'url_guard.dart';
 
 /// Deterministic queue policy. Never bypasses the Android OS scheduler.
 class TransferPolicy {
+  /// Extract status labels from log messages, not URL query parameters.
+  /// A URL such as ?status=404&http=503 must not suppress a legitimate
+  /// socket retry or create a false rate-limit delay. Preserve standalone
+  /// 'status=503' and 'HTTP=429' formats from native/extractor errors.
+  static final RegExp _httpStatus = RegExp(
+    r'(?:^|[\\s:;,(])(?:http(?:/\\d+(?:\\.\\d+)?)?(?:\\s+(?:error|status(?:\\s+code)?))?|status(?:\\s+code)?)\\s*[:=]?\\s*(\\d{3})\\b',
+    caseSensitive: false,
+  );
   /// Limit concurrent in-app direct transfers per host, regardless of scheme
   /// or port. Scheduled Android jobs remain owned by WorkManager.
   static String? directHost(String url) {
@@ -134,9 +142,8 @@ class TransferPolicy {
     // report "status code: 503". Plain substring matching missed both forms.
     // Recognize HTTP/1.1, HTTP/2 and HTTP/3 status lines as well as
     // extractor-style errors; do not mistake stale ranges for network outages.
-    final codes = RegExp(
-      r'\b(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
-    ).allMatches(text).map((match) => int.parse(match.group(1)!)).toSet();
+    final codes = _httpStatus.allMatches(text)
+        .map((match) => int.parse(match.group(1)!)).toSet();
     // A stale partial download (412/416) needs an explicit fresh request;
     // automatically retrying the same range can repeatedly corrupt a resume.
     if (codes.any((code) => const {400, 401, 403, 404, 410, 412, 416, 451}.contains(code)) ||
@@ -172,10 +179,9 @@ class TransferPolicy {
   static Duration? retryDelayForFailure(String failure, int attempt,
       {DateTime? now}) {
     final fallback = retryDelay(attempt);
-    final rateLimited = RegExp(
-      r'\b(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(?:429|503)\b',
-      caseSensitive: false,
-    ).hasMatch(failure);
+    final rateLimited = _httpStatus.allMatches(failure).any(
+      (match) => match.group(1) == '429' || match.group(1) == '503',
+    );
     if (!rateLimited) return fallback;
     // Extractors and HTTP clients may report multiple Retry-After lines.
     // Using only the first can retry before a later, longer server deadline.
