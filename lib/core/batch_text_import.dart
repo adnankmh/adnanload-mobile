@@ -21,7 +21,9 @@ class BatchTextImport {
   /// Stream Android SAF files with a strict limit, including when the picker
   /// cannot report their length. Never load an unbounded file into memory.
   static Future<String> decodeStream(Stream<List<int>> chunks) async {
-    final buffer = BytesBuilder(copy: false);
+    // SAF providers may recycle mutable buffers between stream events.
+    // Snapshot each chunk so later writes cannot corrupt earlier URLs.
+    final buffer = BytesBuilder(copy: true);
     await for (final chunk in chunks) {
       if (chunk.length > maxBytes - buffer.length) {
         throw const FormatException('TXT file exceeds 1 MiB');
