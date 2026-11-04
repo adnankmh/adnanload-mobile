@@ -35,14 +35,11 @@ class RangeProbe {
     if (contentType != null &&
         contentType.split(';').first.trim().toLowerCase() ==
             'multipart/byteranges') return false;
-    // The native downloader may send different request headers than this
-    // probe. A varying representation is unsafe to segment across requests.
-    // Preserve parallelism for unrelated Vary fields such as Origin.
-    if (vary != null && vary.split(',').any((field) =>
-        const {'*', 'accept-encoding', 'authorization', 'cookie', 'user-agent'}
-            .contains(field.trim().toLowerCase()))) {
-      return false;
-    }
+    // Vary means the representation may depend on request headers. The
+    // native downloader cannot guarantee it repeats every probe header, so
+    // even a strong ETag cannot prove all segments describe the same bytes.
+    // Fail closed to the existing single-stream path for any Vary field.
+    if (vary != null && vary.trim().isNotEmpty) return false;
     final encoding = contentEncoding?.trim().toLowerCase();
     if (encoding != null && encoding.isNotEmpty && encoding != 'identity') {
       return false;

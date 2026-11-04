@@ -56,25 +56,29 @@ class _Response extends StreamView<List<int>> implements HttpClientResponse {
 }
 
 void main() {
-  test('unsafe Vary fields require single-stream fallback', () {
+  test('any Vary field requires single-stream fallback', () {
     for (final vary in <String>[
       '*',
       'Accept-Encoding',
       'COOKIE',
       'Authorization',
       'User-Agent',
+      'Origin',
+      'Accept-Language',
+      'Accept',
+      'Range',
       'Origin, Accept-Encoding',
-      'origin,\tCookie',
+      'origin,\\tCookie',
+      'Origin, Accept-Language',
     ]) {
       expect(_safe(vary: vary), isFalse, reason: vary);
     }
   });
 
-  test('unrelated Vary fields preserve parallel capability', () {
+  test('absent or empty Vary preserves parallel capability', () {
     expect(_safe(), isTrue);
     expect(_safe(vary: ''), isTrue);
-    expect(_safe(vary: 'Origin'), isTrue);
-    expect(_safe(vary: 'Origin, Accept-Language'), isTrue);
+    expect(_safe(vary: '  '), isTrue);
   });
 
   test('repeated Vary response headers are combined safely', () async {
@@ -84,9 +88,9 @@ void main() {
     expect(await RangeProbe.verifyProbeResponse(response), isFalse);
   });
 
-  test('harmless Vary response header keeps valid one-byte probe', () async {
+  test('Vary Origin falls back even with a valid one-byte probe', () async {
     final response = _Response(_Headers(vary: const ['Origin']));
-    expect(await RangeProbe.verifyProbeResponse(response), isTrue);
+    expect(await RangeProbe.verifyProbeResponse(response), isFalse);
   });
 
   test('duplicate or malformed response headers fail closed', () async {
