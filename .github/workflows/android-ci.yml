@@ -177,7 +177,9 @@ jobs:
             build/app/outputs/flutter-apk/*.apk
             build/release-checksums/*.txt
           if-no-files-found: error
-          retention-days: 30
+          # Short-lived PR artifacts reduce quota pressure from frequent CI builds.
+          # Keep main/dispatch artifacts longer for manual verification.
+          retention-days: ${{ github.event_name == 'pull_request' && 1 || 3 }}
 
       - name: Upload build failure diagnostics (if any)
         if: failure()
