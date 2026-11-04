@@ -36,6 +36,25 @@ void main() {
     }
   });
 
+  test('SoundCloud artist sets route to playlist extraction safely', () {
+    for (final url in [
+      'https://soundcloud.com/artist/sets/demo',
+      'https://m.soundcloud.com/artist/sets/demo?utm_source=share',
+    ]) {
+      expect(PlaylistRules.looksLikePlaylist(url), isTrue, reason: url);
+    }
+    for (final url in [
+      'https://soundcloud.com/artist/tracks/demo',
+      'https://soundcloud.com/artist/sets',
+      'https://soundcloud.com/artist/sets/',
+      'https://soundcloud.com/artist/assetsets/demo',
+      'https://soundcloud.com.fake.net/artist/sets/demo',
+      'https://example.org/artist/sets/demo',
+    ]) {
+      expect(PlaylistRules.looksLikePlaylist(url), isFalse, reason: url);
+    }
+  });
+
   test('non-HTTP pseudo URLs are not classified as playlists', () {
     expect(PlaylistRules.looksLikePlaylist(
       'javascript://youtube.com/playlist?list=PLvalid'), isFalse);

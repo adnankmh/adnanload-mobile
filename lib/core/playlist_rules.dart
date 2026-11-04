@@ -36,8 +36,13 @@ class PlaylistRules {
           (path.startsWith('/playlist') || !path.startsWith('/watch'));
     }
     // Preserve playlist-style routes on other media services.
+    // SoundCloud artist sets use /<artist>/sets/<slug>, not /sets/<slug>.
+    // Keep other providers' existing routing unchanged.
+    final isSoundCloud =
+        host == 'soundcloud.com' || host.endsWith('.soundcloud.com');
+    final artistSet = isSoundCloud && RegExp(r'/sets/[^/]+').hasMatch(path);
     return path.contains('/playlist/') || path.startsWith('/sets/') ||
-        path.contains('/collections/');
+        artistSet || path.contains('/collections/');
   }
 
   static bool looksLikeMediaSite(String url) {
