@@ -23,12 +23,22 @@ class QuickCapture {
       await _channel.invokeMethod<bool>('hasPermission') ?? false;
   static Future<void> requestPermission() async =>
       _channel.invokeMethod<void>('requestPermission');
+
   static Future<void> enableBubble() async {
-    await _channel.invokeMethod<bool>('enableBubble');
+    // The switch must reflect the native overlay, not just a completed call.
+    // Android can reject a request if permission changes while it is pending.
+    final enabled = await _channel.invokeMethod<bool>('enableBubble');
+    if (enabled != true) {
+      throw StateError('Android did not confirm enabling the quick bubble');
+    }
     visible.value = true;
   }
+
   static Future<void> disableBubble() async {
-    await _channel.invokeMethod<bool>('disableBubble');
+    final disabled = await _channel.invokeMethod<bool>('disableBubble');
+    if (disabled != true) {
+      throw StateError('Android did not confirm disabling the quick bubble');
+    }
     visible.value = false;
   }
 
