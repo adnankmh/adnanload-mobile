@@ -65,7 +65,7 @@ void main() {
       throw PlatformException(code: 'OVERLAY_PERMISSION');
     });
 
-    await expectLater(QuickCapture.disableBubble(), throwsPlatformException);
+    await expectLater(QuickCapture.disableBubble(), throwsA(isA<PlatformException>()));
     expect(QuickCapture.visible.value, isTrue);
   });
 }
