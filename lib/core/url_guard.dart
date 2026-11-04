@@ -1,8 +1,17 @@
 import 'dart:convert';
 
 class UrlGuard {
+  // Invisible controls can disguise a host, path or signed query when a
+  // link is pasted from another app. Keep Arabic ZWNJ/ZWJ intact, but require
+  // direction overrides and other non-printing controls to be percent-encoded.
+  static final RegExp _hiddenUrlControls = RegExp(
+    r'[\u0000-\u001F\u007F\u00AD\u061C\u200B\u200E\u200F\u2028-\u202E\u2060-\u206F\uFEFF]',
+  );
+
   static Uri? validate(String input) {
-    Uri? uri = Uri.tryParse(input.trim());
+    final trimmed = input.trim();
+    if (_hiddenUrlControls.hasMatch(trimmed)) return null;
+    Uri? uri = Uri.tryParse(trimmed);
     if (uri == null || !uri.hasAuthority ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
         uri.host.isEmpty || uri.userInfo.isNotEmpty) return null;
