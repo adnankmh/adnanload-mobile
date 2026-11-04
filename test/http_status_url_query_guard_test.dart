@@ -15,7 +15,7 @@ void main() {
   test('URL query parameters cannot invent a rate-limit response', () {
     const failure =
         'SocketException: connection reset '
-        'https://cdn.example.org/file?status=503&http=429\\n'
+        'https://cdn.example.org/file?status=503&http=429\n'
         'Retry-After: 600';
     expect(TransferPolicy.networkTransient(failure), isTrue);
     expect(TransferPolicy.retryDelayForFailure(failure, 1),
@@ -24,7 +24,7 @@ void main() {
 
   test('real HTTP statuses take precedence over URL query parameters', () {
     const throttled =
-        'HTTP Error 429 https://cdn.example.org/file?status=404\\n'
+        'HTTP Error 429 https://cdn.example.org/file?status=404\n'
         'Retry-After: 180';
     expect(TransferPolicy.networkTransient(throttled), isTrue);
     expect(TransferPolicy.retryDelayForFailure(throttled, 1),
@@ -49,7 +49,7 @@ void main() {
           reason: message);
     }
     expect(TransferPolicy.retryDelayForFailure(
-        'status=503\\nRetry-After: 120', 1),
+        'status=503\nRetry-After: 120', 1),
         const Duration(seconds: 120));
   });
 }
