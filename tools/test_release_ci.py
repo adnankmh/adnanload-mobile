@@ -43,7 +43,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
 
     def test_release_artifacts_have_bounded_event_specific_retention(self):
         upload = re.search(
-            r"(?ms)^      - name: Upload Release APKs\\n(?P<body>.*?)(?=^      - name: |\\Z)",
+            r"(?ms)^      - name: Upload Release APKs\n(?P<body>.*?)(?=^      - name: |\Z)",
             self.workflow,
         )
         self.assertIsNotNone(upload, "Missing release artifact upload step")
@@ -55,10 +55,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
             "retention-days: ${{ github.event_name == 'pull_request' && 1 || 3 }}",
             step,
         )
-        self.assertNotRegex(step, r"(?m)^\\s+if:", "PR uploads must remain enabled")
+        self.assertNotRegex(step, r"(?m)^\s+if:", "PR uploads must remain enabled")
 
     def test_artifact_budget_never_deletes_existing_artifacts(self):
-        self.assertIn("permissions:\\n  contents: read", self.workflow)
+        self.assertIn("permissions:\n  contents: read", self.workflow)
         self.assertNotIn("actions: write", self.workflow)
         self.assertNotIn("DELETE /repos/", self.workflow)
         diagnostics = self.workflow.split(
