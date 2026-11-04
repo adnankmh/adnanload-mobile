@@ -5,6 +5,22 @@ import '../models/download_entry.dart';
 
 /// Scans only files referenced by ADNANLOAD history. Read-only by default.
 class StorageAudit {
+  /// Symlink resolution alone does not collapse hard links: different paths
+  /// may still identify the same physical file. Compare identity only within
+  /// equal-size buckets to avoid unnecessary filesystem checks.
+  static Future<bool> _samePhysicalFileAlreadySeen(
+    String canonicalPath,
+    int size,
+    Map<int, List<String>> seenBySize,
+  ) async {
+    for (final previous in seenBySize[size] ?? const <String>[]) {
+      if (await FileSystemEntity.identical(previous, canonicalPath)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Compare distinct, stable on-disk files only. A download can still be
   /// writing (or a symlink can be retargeted) while this read-only audit runs.
   /// The optional digest callback makes these races deterministic in tests.
@@ -17,6 +33,7 @@ class StorageAudit {
     // Multiple history records can reference the same downloaded file.
     // A duplicate must represent a second, distinct file on disk.
     final visitedPaths = <String>{};
+    final physicalPathsBySize = <int, List<String>>{};
     for (final item in entries) {
       if (item.status != 'complete' || item.isPlaylist || item.path.isEmpty) {
         continue;
@@ -26,7 +43,13 @@ class StorageAudit {
         final stat = await file.stat();
         if (stat.type != FileSystemEntityType.file || stat.size <= 0) continue;
         final canonicalPath = await file.resolveSymbolicLinks();
-        if (!visitedPaths.add(canonicalPath)) continue;
+        if (visitedPaths.contains(canonicalPath) ||
+            await _samePhysicalFileAlreadySeen(
+                canonicalPath, stat.size, physicalPathsBySize)) {
+          continue;
+        }
+        visitedPaths.add(canonicalPath);
+        (physicalPathsBySize[stat.size] ??= <String>[]).add(canonicalPath);
         canonicalPaths[item] = canonicalPath;
         (lengths[stat.size] ??= <DownloadEntry>[]).add(item);
       } on FileSystemException {
@@ -74,17 +97,25 @@ class StorageAudit {
   static Future<int> recordedBytes(List<DownloadEntry> entries) async {
     var total = 0;
     final visitedPaths = <String>{};
+    final physicalPathsBySize = <int, List<String>>{};
     for (final entry in entries) {
       if (entry.status != 'complete' || entry.path.isEmpty || entry.isPlaylist) {
         continue;
       }
       try {
         final file = File(entry.path);
-        if (!await file.exists()) continue;
-        // Normalize aliases before accounting for app-managed storage.
+        final stat = await file.stat();
+        if (stat.type != FileSystemEntityType.file) continue;
+        // Normalize symlink/path aliases and avoid counting hard links twice.
         final canonicalPath = await file.resolveSymbolicLinks();
-        if (!visitedPaths.add(canonicalPath)) continue;
-        total += await file.length();
+        if (visitedPaths.contains(canonicalPath) ||
+            await _samePhysicalFileAlreadySeen(
+                canonicalPath, stat.size, physicalPathsBySize)) {
+          continue;
+        }
+        visitedPaths.add(canonicalPath);
+        (physicalPathsBySize[stat.size] ??= <String>[]).add(canonicalPath);
+        total += stat.size;
       } on FileSystemException { /* file was removed or inaccessible */ }
     }
     return total;
