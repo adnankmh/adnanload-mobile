@@ -68,7 +68,7 @@ void main() {
       'Accept',
       'Range',
       'Origin, Accept-Encoding',
-      'origin,\\tCookie',
+      'origin,\tCookie',
       'Origin, Accept-Language',
     ]) {
       expect(_safe(vary: vary), isFalse, reason: vary);
@@ -79,11 +79,19 @@ void main() {
     expect(_safe(), isTrue);
     expect(_safe(vary: ''), isTrue);
     expect(_safe(vary: '  '), isTrue);
+    expect(_safe(vary: ' \t '), isTrue);
   });
 
   test('repeated Vary response headers are combined safely', () async {
     final response = _Response(_Headers(
       vary: const ['Origin', 'Accept-Encoding'],
+    ));
+    expect(await RangeProbe.verifyProbeResponse(response), isFalse);
+  });
+
+  test('repeated Vary with empty first field still falls back', () async {
+    final response = _Response(_Headers(
+      vary: const ['', 'Cookie'],
     ));
     expect(await RangeProbe.verifyProbeResponse(response), isFalse);
   });
