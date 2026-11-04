@@ -58,15 +58,15 @@ class RangeProbe {
   static Future<bool> verifyProbeResponse(HttpClientResponse response) async {
     try {
       if (!supportsParallelResponse(
-      statusCode: response.statusCode,
-      acceptRanges: response.headers.value('accept-ranges'),
-      etag: response.headers.value('etag'),
-      contentRange: response.headers.value('content-range'),
-      contentLength: response.contentLength,
-      contentEncoding: response.headers.value('content-encoding'),
-      contentType: response.headers.value('content-type'),
-      vary: response.headers['vary']?.join(','),
-    )) {
+        statusCode: response.statusCode,
+        acceptRanges: response.headers.value('accept-ranges'),
+        etag: response.headers.value('etag'),
+        contentRange: response.headers.value('content-range'),
+        contentLength: response.contentLength,
+        contentEncoding: response.headers.value('content-encoding'),
+        contentType: response.headers.value('content-type'),
+        vary: response.headers['vary']?.join(','),
+      )) {
         return false;
       }
       final count = await response.fold<int>(0, (count, bytes) {
