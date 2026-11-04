@@ -13,6 +13,17 @@ const scheduledDirectTaskName = 'adnanload.scheduled.direct.v1';
 
 String scheduledWorkId(String id) => 'adnanload.direct.$id';
 
+/// A scheduled transfer must never begin before its requested wall-clock time.
+/// WorkManager may invoke a job early after clock changes or OS rescheduling.
+/// Invalid timestamps are discarded rather than retried forever.
+enum ScheduledStartDecision { discard, retryLater, start }
+
+ScheduledStartDecision scheduledStartDecision(int scheduledAt, int nowMillis) {
+  if (scheduledAt <= 0) return ScheduledStartDecision.discard;
+  if (scheduledAt > nowMillis) return ScheduledStartDecision.retryLater;
+  return ScheduledStartDecision.start;
+}
+
 @pragma('vm:entry-point')
 void adnanloadScheduleDispatcher() {
   Workmanager().executeTask((name, inputData) async {
@@ -25,10 +36,16 @@ void adnanloadScheduleDispatcher() {
     final scheduledAt = inputData['scheduledAt'];
     if (id is! String || id.isEmpty || rawUrl is! String ||
         fileName is! String || scheduledAt is! int) return true;
+    final timing = scheduledStartDecision(
+      scheduledAt, DateTime.now().millisecondsSinceEpoch,
+    );
+    if (timing == ScheduledStartDecision.discard) return true;
+    if (timing == ScheduledStartDecision.retryLater) {
+      return false; // WorkManager retries; never enqueue before the chosen time.
+    }
     final url = UrlGuard.validate(rawUrl);
-    if (url == null || UrlGuard.safeName(fileName) != fileName ||
-        scheduledAt > DateTime.now().millisecondsSinceEpoch + 60000) {
-      return false; // protect against malformed / prematurely executed jobs
+    if (url == null || UrlGuard.safeName(fileName) != fileName) {
+      return false; // preserve existing retry behavior for invalid payloads
     }
     try {
       final downloader = bd.FileDownloader();
