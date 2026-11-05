@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
+import '../core/download_list_filter.dart';
 import '../services/download_repository.dart';
 import '../widgets/premium_download_card.dart';
 
@@ -22,17 +23,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
   Widget build(BuildContext context) {
     final t = widget.strings.t;
     final scheme = Theme.of(context).colorScheme;
-    final entries = widget.repo.items.where((item) {
-      final matching = switch (filter) {
-        'active' => {'running', 'waiting', 'paused'}.contains(item.status),
-        'finished' => item.status == 'complete',
-        'failed' => {'error', 'canceled'}.contains(item.status),
-        _ => true,
-      };
-      final query = search.trim().toLowerCase();
-      return matching && (item.name.toLowerCase().contains(query) ||
-          item.url.toLowerCase().contains(query));
-    }).toList();
+    final entries = widget.repo.items.where((item) =>
+        DownloadListFilter.matches(item, filter: filter, query: search)).toList();
     final metrics = widget.repo.metrics;
     final active = metrics.running;
     final completed = metrics.completed;
