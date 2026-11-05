@@ -16,7 +16,9 @@ class BackupImportReader {
   }
 
   static Future<String> decodeStream(Stream<List<int>> chunks) async {
-    final buffer = BytesBuilder(copy: false);
+    // Some SAF providers recycle the same backing buffer for each chunk.
+    // Copy on arrival so later reads cannot rewrite already-received bytes.
+    final buffer = BytesBuilder(copy: true);
     await for (final chunk in chunks) {
       if (chunk.length > maxBytes - buffer.length) {
         throw const FormatException('Backup exceeds 5 MiB');
