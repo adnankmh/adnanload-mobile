@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/app_strings.dart';
+import '../core/batch_links.dart';
 import '../core/playlist_rules.dart';
 import '../core/url_guard.dart';
 import '../services/download_repository.dart';
@@ -12,8 +13,11 @@ class NeonHomePage extends StatefulWidget {
   final AppStrings strings;
   final void Function(String url, String kind) onDownload;
   final VoidCallback onSeeAll;
+  /// Routes explicit multi-link clipboard pastes to the existing batch sheet.
+  /// Optional for embedders that only support single-link downloads.
+  final ValueChanged<String>? onBatchPaste;
   const NeonHomePage({super.key, required this.repo, required this.strings,
-    required this.onDownload, required this.onSeeAll});
+    required this.onDownload, required this.onSeeAll, this.onBatchPaste});
   @override
   State<NeonHomePage> createState() => _NeonHomePageState();
 }
@@ -37,9 +41,19 @@ class _NeonHomePageState extends State<NeonHomePage> {
   }
 
   Future<void> paste() async {
+    // Read the clipboard only after an explicit tap; never monitor it in the
+    // background. Reuse batch validation to exclude unsafe and duplicate URLs.
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (!mounted) return;
-    setState(() => controller.text = data?.text ?? '');
+    final pasted = data?.text ?? '';
+    final links = BatchLinks.parse(pasted);
+    if (links.length > 1 && widget.onBatchPaste != null) {
+      widget.onBatchPaste!(links.join('\n'));
+      return;
+    }
+    // Keep the existing editable paste behavior for invalid/free-form text.
+    // A single valid link pasted from prose becomes ready for Download.
+    setState(() => controller.text = links.length == 1 ? links.single : pasted);
   }
 
   @override
