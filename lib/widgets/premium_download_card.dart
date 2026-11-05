@@ -77,14 +77,14 @@ class PremiumDownloadCard extends StatelessWidget {
                 FilledButton(onPressed:()=>Navigator.pop(ctx,controller.text),child:Text(strings.t('save')))],
             ));
             if (input != null && input.trim().isNotEmpty) await repo.renameFinished(item,input.trim());
-          } finally { c        case 'open':
+          } finally { controller.dispose(); }
+          break;
+        case 'open':
           if (item.isPlaylist) {
             await _showPlaylistFiles(context);
           } else if (item.path.isNotEmpty) {
             await _openFileWithConfirmation(context, item.path,
               displayName: item.name);
-          }
- OpenFilex.open(item.path);
           }
           break;
       }
