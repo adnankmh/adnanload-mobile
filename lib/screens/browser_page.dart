@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../core/app_strings.dart';
 import '../core/url_guard.dart';
 import '../core/media_detector.dart';
+import '../core/browser_download_router.dart';
 import '../services/download_repository.dart';
 
 /// A small tabbed browser. Captures user-initiated direct file navigations,
@@ -28,10 +29,6 @@ class _BrowserPageState extends State<BrowserPage> with WidgetsBindingObserver {
   bool privateSession = false;
   bool _clearingSession = false;
   final Map<WebViewController,List<String>> detected = {};
-
-  static final RegExp downloadable = RegExp(
-    r'\.(zip|rar|7z|tar|gz|apk|pdf|epub|mp3|m4a|mp4|mkv|webm|iso|exe|docx?|xlsx?|pptx?)$',
-    caseSensitive: false);
 
   @override
   void initState() {
@@ -60,8 +57,7 @@ class _BrowserPageState extends State<BrowserPage> with WidgetsBindingObserver {
         onPageFinished: (_) => _scanPage(web),
         onNavigationRequest:(request) {
           if (UrlGuard.validate(request.url) == null) return NavigationDecision.prevent;
-          final path = Uri.parse(request.url).path;
-          if (downloadable.hasMatch(path)) {
+          if (BrowserDownloadRouter.isDirectFileNavigation(request.url)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) widget.onDownload(request.url, 'direct');
             });
