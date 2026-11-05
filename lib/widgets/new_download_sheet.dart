@@ -60,20 +60,27 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
         : SmartLink.incomingKind(candidate, requested: widget.initialKind);
     final routed = suggested == 'playlist' ? 'video' : suggested;
     final isPlaylist = PlaylistRules.looksLikePlaylist(candidate) && routed != 'direct';
-    if (routed != kind || isPlaylist != playlist) {
-      setState(() {
-        kind = routed;
-        playlist = isPlaylist;
-        preview = null;
-      });
-    }
+    // Typing a different URL invalidates every pending metadata response,
+    // even when the inferred download kind remains unchanged.
+    requestSerial++;
+    setState(() {
+      loadingName = false;
+      preview = null;
+      error = '';
+      kind = routed;
+      playlist = isPlaylist;
+    });
   }
 
   Future<void> _inspect() async {
-    if (kind == 'direct' || UrlGuard.validate(url.text) == null) return;
-    setState(() { loadingName = true; error = ''; });
-    final result = await widget.repo.inspectMedia(url.text.trim());
-    if (!mounted) return;
+    final candidate = url.text.trim();
+    if (kind == 'direct' || UrlGuard.validate(candidate) == null) return;
+    final serial = ++requestSerial;
+    final requestedKind = kind;
+    setState(() { loadingName = true; error = ''; preview = null; });
+    final result = await widget.repo.inspectMedia(candidate);
+    if (!mounted || serial != requestSerial ||
+        candidate != url.text.trim() || kind != requestedKind) return;
     setState(() {
       preview = result;
       loadingName = false;
@@ -96,15 +103,24 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
 
   Future<void> _suggestName() async {
     final candidate = url.text.trim();
-    if (UrlGuard.validate(candidate) == null) return;
     final serial = ++requestSerial;
+    if (UrlGuard.validate(candidate) == null) {
+      if (mounted) setState(() => loadingName = false);
+      return;
+    }
+    final requestedKind = kind;
+    final requestedPlaylist = playlist;
+    final requestedFormat = audioFormat;
     if (kind == 'direct') {
       if (!userEditedName) filename.text = UrlGuard.nameFromUrl(candidate);
+      if (mounted) setState(() => loadingName = false);
       return;
     }
     setState(() { loadingName = true; error = ''; });
     final suggested = await widget.repo.suggestMediaTitle(candidate);
-    if (!mounted || serial != requestSerial) return;
+    if (!mounted || serial != requestSerial ||
+        candidate != url.text.trim() || kind != requestedKind ||
+        playlist != requestedPlaylist || audioFormat != requestedFormat) return;
     setState(() {
       loadingName = false;
       if (suggested != null && !userEditedName) {
@@ -200,7 +216,8 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
               ButtonSegment(value:'video',label:Text(s.t('video')),icon:const Icon(Icons.video_library_outlined)),
               ButtonSegment(value:'mp3',label:Text(s.t('mp3')),icon:const Icon(Icons.music_note_rounded)),
             ], selected:{kind}, onSelectionChanged:busy?null:(v){
-              setState((){kind=v.first; kindIsManual=true; if(kind=='direct')playlist=false; userEditedName=false;
+              setState((){requestSerial++; loadingName=false; preview=null;
+                kind=v.first; kindIsManual=true; if(kind=='direct')playlist=false; userEditedName=false;
                 filename.text=UrlGuard.nameFromUrl(url.text);});
               _suggestName();
             }),
@@ -226,7 +243,8 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
             SwitchListTile.adaptive(
               contentPadding:EdgeInsets.zero,
               value:playlist, title:Text(s.t('playlist')), subtitle:Text(s.t('playlistSubtitle')),
-              onChanged:busy?null:(v){setState((){playlist=v; userEditedName=false;
+              onChanged:busy?null:(v){setState((){requestSerial++; loadingName=false; preview=null;
+                playlist=v; userEditedName=false;
                 if(v) filename.text = widget.strings.t('playlist');}); _suggestName();}),
             if (playlist) ...[
               OutlinedButton.icon(icon:const Icon(Icons.view_list_rounded),
@@ -266,7 +284,8 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
               decoration:InputDecoration(labelText:s.t('audioFormat')),
               items:const ['mp3','m4a','flac','wav','opus'].map((k)=>DropdownMenuItem(
                 value:k,child:Text(k.toUpperCase()))).toList(),
-              onChanged:(v){setState((){audioFormat=v??'mp3'; userEditedName=false;});_suggestName();}),
+              onChanged:(v){setState((){requestSerial++; loadingName=false; preview=null;
+                audioFormat=v??'mp3'; userEditedName=false;});_suggestName();}),
           ],
           if (kind=='video') ...[
             const SizedBox(height:10),
