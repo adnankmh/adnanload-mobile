@@ -30,9 +30,39 @@ class BatchLinkPreview {
     final kind = playlist ? 'video' : detected;
     final last = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
     // A page URL, or a file without a recognizable extension, cannot give
-    // us a reliable filename until the server responds.
+    // us a reliable filename until the server responds. Common web document
+    // and server-script suffixes are not reliable download filenames.
+    // Uri.pathSegments decodes escapes, so an encoded slash/backslash may
+    // conceal multiple path components inside the apparent last segment.
+    final pageLike = RegExp(
+      r'\.(?:html?|xhtml|php\d?|aspx?|jspx?)
+    return BatchLinkPreview(
+      url: url,
+      host: uri.host,
+      kind: kind,
+      isPlaylist: playlist,
+      suggestedName: fileLike ? UrlGuard.safeName(last) : null,
+    );
+  }
+}
+,
+      caseSensitive: false,
+    ).hasMatch(last);
+    final hasEncodedSeparator = last.contains('/') || last.contains('\\');
     final fileLike = kind == 'direct' &&
-        RegExp(r'\.[a-zA-Z0-9]{1,16}$').hasMatch(last);
+        !pageLike &&
+        !hasEncodedSeparator &&
+        RegExp(r'\.[a-zA-Z0-9]{1,16}
+    return BatchLinkPreview(
+      url: url,
+      host: uri.host,
+      kind: kind,
+      isPlaylist: playlist,
+      suggestedName: fileLike ? UrlGuard.safeName(last) : null,
+    );
+  }
+}
+).hasMatch(last);
     return BatchLinkPreview(
       url: url,
       host: uri.host,
