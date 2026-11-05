@@ -169,7 +169,11 @@ jobs:
           echo "Signing: ${{ steps.signing.outputs.mode }}" >> ../../../release-checksums/FILES.txt
           echo "Commit: ${{ github.sha }}" >> ../../../release-checksums/FILES.txt
 
+      # Pull requests validate the APK locally in CI but do not publish a release
+      # artifact. Repeated PR uploads exhaust the repository's Actions quota and
+      # must not turn otherwise successful analyzer/tests/APK validation red.
       - name: Upload Release APKs
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v4
         with:
           name: ADNANLOAD-v2.3.2-RELEASE-APK
@@ -177,10 +181,10 @@ jobs:
             build/app/outputs/flutter-apk/*.apk
             build/release-checksums/*.txt
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload build failure diagnostics (if any)
-        if: failure()
+        if: ${{ failure() && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v4
         with:
           name: ADNANLOAD-build-diagnostics
@@ -189,4 +193,4 @@ jobs:
             build/reports/
             build/ci-diagnostics/
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 1
