@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/app_strings.dart';
 import '../models/download_entry.dart';
 import '../core/smart_link.dart';
+import '../core/file_open_safety.dart';
 import '../services/download_repository.dart';
 
 /// Live transfer card. No simulated progress, sizes or download speeds.
@@ -76,26 +77,49 @@ class PremiumDownloadCard extends StatelessWidget {
                 FilledButton(onPressed:()=>Navigator.pop(ctx,controller.text),child:Text(strings.t('save')))],
             ));
             if (input != null && input.trim().isNotEmpty) await repo.renameFinished(item,input.trim());
-          } finally { controller.dispose(); }
-          break;
-        case 'open':
-          if (RegExp(r'\.(apk|exe|msi|bat|cmd|sh|jar)$',caseSensitive:false).hasMatch(item.name) &&
-              context.mounted) {
-            final confirmed = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
-              title:Text(strings.t('fileSafety')),
-              content:Text(strings.t('confirmRiskyFile')),
-              actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:Text(strings.t('cancel'))),
-                FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:Text(strings.t('open')))],
-            ));
-            if (confirmed != true) break;
-          }
+          } finally { c        case 'open':
           if (item.isPlaylist) {
             await _showPlaylistFiles(context);
           } else if (item.path.isNotEmpty) {
-            await OpenFilex.open(item.path);
+            await _openFileWithConfirmation(context, item.path,
+              displayName: item.name);
+          }
+ OpenFilex.open(item.path);
           }
           break;
       }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  /// Every entry point (card, folder listing, playlist listing) must check
+  /// the real file path before handing it to an external Android app.
+  Future<void> _openFileWithConfirmation(BuildContext context, String path,
+      {String? displayName}) async {
+    if (!context.mounted || path.isEmpty) return;
+    if (FileOpenSafety.requiresConfirmation(path, displayName: displayName)) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(strings.t('fileSafety')),
+          content: Text(strings.t('confirmRiskyFile')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: Text(strings.t('cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true),
+              child: Text(strings.t('open'))),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    if (!context.mounted) return;
+    try {
+      await OpenFilex.open(path);
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +146,7 @@ class PremiumDownloadCard extends StatelessWidget {
           leading:Icon(SmartLink.category(file.path)=='video'
             ?Icons.video_file_rounded:Icons.insert_drive_file_outlined),
           title:Text(file.uri.pathSegments.last),
-          onTap:()=>OpenFilex.open(file.path)),
+          onTap:()=>_openFileWithConfirmation(ctx, file.path)),
       ]));
   }
 
@@ -150,7 +174,7 @@ class PremiumDownloadCard extends StatelessWidget {
               itemBuilder: (_, i) => ListTile(
                 leading: const Icon(Icons.insert_drive_file_outlined),
                 title: Text(files[i].uri.pathSegments.last),
-                onTap: () => OpenFilex.open(files[i].path),
+                onTap: () => _openFileWithConfirmation(ctx, files[i].path),
               )),
           ),
         ]),
