@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:adnanload_mobile/core/backup_import_reader.dart';
@@ -66,5 +67,21 @@ void main() {
     await expectLater(BackupImportReader.decodeStream(
         Stream.value(utf8.encode('not json'))), completion('not json'));
     expect(() => BackupService.parse('not json'), throwsFormatException);
+  });
+
+  test('copies SAF chunks before a provider reuses its backing buffer',
+      () async {
+    Stream<List<int>> reusedBuffer() async* {
+      final shared = Uint8List.fromList(utf8.encode('prefix'));
+      yield shared;
+      // Allow the consumer to receive the first chunk before the provider
+      // overwrites the same memory for its next read.
+      await Future<void>.delayed(Duration.zero);
+      shared.setAll(0, utf8.encode('suffix'));
+      yield shared;
+    }
+
+    expect(await BackupImportReader.decodeStream(reusedBuffer()),
+        'prefixsuffix');
   });
 }
