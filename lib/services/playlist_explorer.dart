@@ -52,7 +52,7 @@ class PlaylistExplorer {
             entry.name, safeThumbnailUrl(entry.thumbnailUrl)));
           if (entries.length >= maxItems) break;
         }
-        if (entries.length >= limit || !current.hasNext) break;
+        if (entries.length >= maxItems || !current.hasNext) break;
         current = await service.loadMore(current.sessionId);
       }
       return PlaylistPreview(page.name, entries);
