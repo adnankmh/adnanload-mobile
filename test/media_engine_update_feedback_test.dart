@@ -25,11 +25,13 @@ Future<void> _showMedia(WidgetTester tester, _FakeRepository repo,
       body: MediaPage(
         repo: repo,
         strings: AppStrings(language),
-        onAdd: onAdd ?? (_, __) {},
+        onAdd: onAdd ?? (_, _) {},
       ),
     ),
   ));
   await tester.ensureVisible(find.byType(OutlinedButton));
+  // ensureVisible changes scroll offset; pump to lay out the new hit target.
+  await tester.pump();
 }
 
 void main() {
