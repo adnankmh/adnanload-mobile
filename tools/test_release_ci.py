@@ -27,8 +27,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         # even when the separate GitHub Actions release-artifact quota is full.
         self.assertRegex(
             self.workflow,
-            r"(?m)^      - name: Upload Release APKs\\n"
-            r"        if: \\$\\{\\{ github\\.event_name != 'pull_request' \\}\\}\\n"
+            r"(?m)^      - name: Upload Release APKs\n"
+            r"        if: \$\{\{ github\.event_name != 'pull_request' \}\}\n"
             r"        uses: actions/upload-artifact@v4",
         )
         self.assertIn("          retention-days: 3", self.workflow)
@@ -36,8 +36,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_failure_diagnostics_do_not_consume_pr_artifact_quota(self):
         self.assertRegex(
             self.workflow,
-            r"(?m)^      - name: Upload build failure diagnostics \\(if any\\)\\n"
-            r"        if: \\$\\{\\{ failure\\(\\) && github\\.event_name != 'pull_request' \\}\\}\\n"
+            r"(?m)^      - name: Upload build failure diagnostics \(if any\)\n"
+            r"        if: \$\{\{ failure\(\) && github\.event_name != 'pull_request' \}\}\n"
             r"        uses: actions/upload-artifact@v4",
         )
         self.assertIn("          retention-days: 1", self.workflow)
