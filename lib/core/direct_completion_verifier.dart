@@ -79,59 +79,7 @@ class DirectCompletionVerifier {
       // Enqueue validates user-entered digests, but restored history may be
       // corrupted or edited. Never hash a potentially large completed file
       // for a malformed persisted checksum, and never treat it as unchecked.
-      if (!RegExp(r'^[0-9a-fA-F]{64}
-            ? sha256.bind(file.openRead()).first.then((digest) => digest.toString())
-            : hashFile(file));
-        if (!isCurrent()) return null;
-        final after = await file.stat();
-        if (!isCurrent()) return null;
-        final canonicalAfter = await file.resolveSymbolicLinks();
-        if (!isCurrent()) return null;
-        // A matching digest is not sufficient if a symlink was retargeted or
-        // the underlying file was replaced while hashing.
-        if (!_sameFileGeneration(
-          before, after, canonicalBefore, canonicalAfter,
-        )) {
-          return DirectCompletionResult(
-            path: path, status: 'error', error: 'verificationFailed');
-        }
-        return actual.toLowerCase() == expectedSha256.toLowerCase()
-            ? DirectCompletionResult.success(path, actualSha256: actual)
-            : DirectCompletionResult(
-                path: path, status: 'error', error: 'checksumMismatch',
-                actualSha256: actual);
-      } catch (_) {
-        if (!isCurrent()) return null;
-        return DirectCompletionResult(
-          path: path, status: 'error', error: 'verificationFailed');
-      }
-    } catch (_) {
-      if (!isCurrent()) return null;
-      return DirectCompletionResult.missing(path);
-    }
-  }
-}
-
-class DirectCompletionResult {
-  const DirectCompletionResult({
-    required this.path,
-    required this.status,
-    required this.error,
-    this.actualSha256 = '',
-  });
-
-  final String path;
-  final String status;
-  final String error;
-  final String actualSha256;
-
-  const DirectCompletionResult.success(this.path, {this.actualSha256 = ''})
-      : status = 'complete', error = '';
-
-  const DirectCompletionResult.missing(this.path)
-      : status = 'error', error = 'downloadedFileMissing', actualSha256 = '';
-}
-).hasMatch(expectedSha256)) {
+      if (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(expectedSha256)) {
         if (!isCurrent()) return null;
         return DirectCompletionResult(
           path: path, status: 'error', error: 'verificationFailed');
