@@ -30,4 +30,24 @@ void main() {
     expect(scheduledStartDecision(-1, scheduled),
         ScheduledStartDecision.discard);
   });
+  test('scheduled payload rejects permanent URL and filename errors', () {
+    expect(scheduledDirectUrl('job', 'file:///tmp/file', 'file.bin'), isNull);
+    expect(scheduledDirectUrl('job',
+        'https://user:pass@example.org/file', 'file.bin'), isNull);
+    expect(scheduledDirectUrl('job', 'https://example.org/file',
+        '../unsafe.apk'), isNull);
+    expect(scheduledDirectUrl('', 'https://example.org/file',
+        'file.bin'), isNull);
+  });
+
+  test('scheduled payload enforces the native input length limit', () {
+    final tooLong = 'https://example.org/' + ('a' * 3500);
+    expect(scheduledDirectUrl('job', tooLong, 'file.bin'), isNull);
+  });
+
+  test('scheduled payload preserves public signed download URL', () {
+    const signed = 'https://example.org/file.bin?token=a%2Fb&expires=123';
+    expect(scheduledDirectUrl('job', signed, 'file.bin')?.toString(),
+        signed);
+  });
 }

@@ -13,6 +13,14 @@ const scheduledDirectTaskName = 'adnanload.scheduled.direct.v1';
 
 String scheduledWorkId(String id) => 'adnanload.direct.$id';
 
+/// Reject permanent, unsafe scheduler payloads instead of retrying them forever.
+/// Apply the same URL and filename rules at registration and execution time.
+Uri? scheduledDirectUrl(String id, String rawUrl, String fileName) {
+  if (id.isEmpty || rawUrl.length > 3500 ||
+      UrlGuard.safeName(fileName) != fileName) return null;
+  return UrlGuard.validate(rawUrl);
+}
+
 /// A scheduled transfer must never begin before its requested wall-clock time.
 /// WorkManager may invoke a job early after clock changes or OS rescheduling.
 /// Invalid timestamps are discarded rather than retried forever.
@@ -36,16 +44,14 @@ void adnanloadScheduleDispatcher() {
     final scheduledAt = inputData['scheduledAt'];
     if (id is! String || id.isEmpty || rawUrl is! String ||
         fileName is! String || scheduledAt is! int) return true;
+    final url = scheduledDirectUrl(id, rawUrl, fileName);
+    if (url == null) return true; // Invalid data cannot recover on retry.
     final timing = scheduledStartDecision(
       scheduledAt, DateTime.now().millisecondsSinceEpoch,
     );
     if (timing == ScheduledStartDecision.discard) return true;
     if (timing == ScheduledStartDecision.retryLater) {
       return false; // WorkManager retries; never enqueue before the chosen time.
-    }
-    final url = UrlGuard.validate(rawUrl);
-    if (url == null || UrlGuard.safeName(fileName) != fileName) {
-      return false; // preserve existing retry behavior for invalid payloads
     }
     try {
       final downloader = bd.FileDownloader();
@@ -100,8 +106,7 @@ class AndroidScheduleService {
     required int priority,
   }) async {
     if (!Platform.isAndroid || !initialized) return false;
-    if (UrlGuard.validate(url) == null || id.isEmpty ||
-        UrlGuard.safeName(name) != name || url.length > 3500) return false;
+    if (scheduledDirectUrl(id, url, name) == null) return false;
     final delay = when.difference(DateTime.now());
     if (delay <= Duration.zero) return false;
     try {
