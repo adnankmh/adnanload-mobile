@@ -95,4 +95,27 @@ https://example.org/two.pdf
         .controller!.text, input);
     repo.dispose();
   });
+
+  testWidgets('clipboard platform failure preserves input and skips batch',
+      (tester) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.getData') {
+        throw PlatformException(code: 'clipboard_unavailable');
+      }
+      return null;
+    });
+    final repo = DownloadRepository();
+    String? batch;
+    await _mountHome(tester, repo, onBatchPaste: (value) => batch = value);
+    await tester.enterText(find.byType(TextField).first,
+        'https://example.org/keep.zip');
+    await tester.tap(find.byTooltip('Paste'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(batch, isNull);
+    expect(tester.widget<TextField>(find.byType(TextField).first)
+        .controller!.text, 'https://example.org/keep.zip');
+    repo.dispose();
+  });
 }

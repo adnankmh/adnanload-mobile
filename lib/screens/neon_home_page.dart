@@ -43,7 +43,16 @@ class _NeonHomePageState extends State<NeonHomePage> {
   Future<void> paste() async {
     // Read the clipboard only after an explicit tap; never monitor it in the
     // background. Reuse batch validation to exclude unsafe and duplicate URLs.
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    ClipboardData? data;
+    try {
+      data = await Clipboard.getData(Clipboard.kTextPlain);
+    } on PlatformException {
+      // Clipboard access may be denied by the OS; preserve manual input.
+      return;
+    } on MissingPluginException {
+      // A platform implementation may not provide clipboard access.
+      return;
+    }
     if (!mounted) return;
     final pasted = data?.text ?? '';
     final links = BatchLinks.parse(pasted);
