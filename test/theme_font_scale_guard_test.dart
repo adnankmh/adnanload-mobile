@@ -55,4 +55,27 @@ void main() {
       expect(size(1.2), lessThan(size(1.35)));
     }
   });
+
+  test('zoom changes typography without changing any palette colors', () {
+    for (final palette in BrandThemes.names) {
+      final baseline = BrandThemes.build(palette);
+      for (final zoom in <double>[
+        double.nan,
+        double.infinity,
+        -1.0,
+        0.9,
+        1.35,
+        100.0,
+      ]) {
+        final themed = BrandThemes.build(palette, fontScale: zoom);
+        expect(themed.useMaterial3, isTrue);
+        expect(themed.brightness, baseline.brightness);
+        expect(themed.colorScheme.primary, baseline.colorScheme.primary);
+        expect(themed.colorScheme.surface, baseline.colorScheme.surface);
+        expect(themed.scaffoldBackgroundColor, baseline.scaffoldBackgroundColor);
+        expect(themed.cardTheme.color, baseline.cardTheme.color);
+        expect(themed.appBarTheme.backgroundColor, baseline.appBarTheme.backgroundColor);
+      }
+    }
+  });
 }
