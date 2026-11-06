@@ -53,6 +53,38 @@ void main() {
     }
   });
 
+  test('next scheduled lists pending jobs chronologically, not completed ones', () {
+    final early = item('early', 'early.zip', 10, 5)..scheduledAt = 100;
+    final late = item('late', 'late.zip', 20, 5)..scheduledAt = 300;
+    final completed = item('done', 'done.zip', 30, 5)
+      ..scheduledAt = 50
+      ..status = 'complete';
+    final unscheduled = item('now', 'now.zip', 40, 5);
+    final ordered = DownloadListSort.ordered(
+        [unscheduled, late, completed, early], 'scheduled');
+    expect(ordered.map((e) => e.id), ['early', 'late', 'now', 'done']);
+    expect(early.scheduledAt, 100);
+    expect(completed.status, 'complete');
+  });
+
+  test('invalid schedule times are treated as unscheduled', () {
+    final invalid = item('invalid', 'bad.zip', 40, 5)
+      ..scheduledAt = -10;
+    final zero = item('zero', 'zero.zip', 30, 5);
+    final pending = item('pending', 'pending.zip', 10, 5)
+      ..scheduledAt = 200;
+    expect(DownloadListSort.ordered([invalid, zero, pending], 'scheduled')
+        .map((e) => e.id), ['pending', 'invalid', 'zero']);
+  });
+
+  test('equal schedule times fall back to newest date then stable id', () {
+    final a = item('a', 'A', 10, 5)..scheduledAt = 100;
+    final z = item('z', 'Z', 10, 5)..scheduledAt = 100;
+    final newer = item('new', 'N', 20, 5)..scheduledAt = 100;
+    expect(DownloadListSort.ordered([z, a, newer], 'scheduled')
+        .map((e) => e.id), ['new', 'a', 'z']);
+  });
+
   test('empty and singleton lists are safe', () {
     expect(DownloadListSort.ordered(<DownloadEntry>[], 'name'), isEmpty);
     expect(DownloadListSort.ordered([a], 'priority'), [a]);
@@ -63,6 +95,10 @@ void main() {
         'حسب أولوية الطابور');
     expect(DownloadListSort.label('priority', arabic: false),
         'Queue priority');
-    expect(DownloadListSort.modes, hasLength(4));
+    expect(DownloadListSort.label('scheduled', arabic: true),
+        'المجدولة الأقرب أولاً');
+    expect(DownloadListSort.label('scheduled', arabic: false),
+        'Next scheduled');
+    expect(DownloadListSort.modes, hasLength(5));
   });
 }
