@@ -59,4 +59,36 @@ void main() {
     );
     expect(result?.error, 'downloadedFileMissing');
   });
+
+  test('optional checksum still completes without invoking hashing', () async {
+    final file = await File('${temp.path}/unchecked.bin').writeAsBytes([1, 2, 3]);
+    var hashCalls = 0;
+    final result = await DirectCompletionVerifier.inspect(
+      resolvePath: () async => file.path,
+      fallbackPath: '',
+      expectedSha256: '',
+      isCurrent: () => true,
+      hashFile: (_) async {
+        hashCalls++;
+        return 'unexpected';
+      },
+    );
+    expect(result?.status, 'complete');
+    expect(result?.error, isEmpty);
+    expect(hashCalls, 0);
+  });
+
+  test('well-formed but incorrect checksum remains a mismatch', () async {
+    final file = await File('${temp.path}/wrong.bin').writeAsBytes([97, 98, 99]);
+    final result = await DirectCompletionVerifier.inspect(
+      resolvePath: () async => file.path,
+      fallbackPath: '',
+      expectedSha256: List.filled(64, '0').join(),
+      isCurrent: () => true,
+    );
+    expect(result?.status, 'error');
+    expect(result?.error, 'checksumMismatch');
+    expect(result?.actualSha256,
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  });
 }
