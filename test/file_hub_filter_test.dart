@@ -65,4 +65,17 @@ void main() {
   test('unknown selection retains the prior show-all fallback', () {
     expect(FileHubFilter.matches(entry('file.txt'), selected: 'unexpected'), isTrue);
   });
+
+  test('supports Arabic names and case-insensitive saved-file search', () {
+    final item = entry('تقرير العمليات', path: '/storage/Download/REPORT_2026.PDF');
+    expect(FileHubFilter.matches(item, selected: 'documentFiles', query: 'تقرير'), isTrue);
+    expect(FileHubFilter.matches(item, selected: 'documentFiles', query: 'report_2026'), isTrue);
+    expect(FileHubFilter.matches(item, selected: 'audioFiles', query: 'report_2026'), isFalse);
+  });
+
+  test('recognizes extension on disk when the display title is empty', () {
+    final item = entry('', path: r'C:\Downloads\capture.M4V');
+    expect(FileHubFilter.category(item), 'video');
+    expect(FileHubFilter.matches(item, selected: 'videoFiles', query: 'CAPTURE'), isTrue);
+  });
 }
