@@ -30,6 +30,24 @@ void main() {
     expect(FileOpenSafety.requiresConfirmation('/files/install.apk  '), isTrue);
   });
 
+  test('prompts for Windows executable shortcuts and scripts', () {
+    for (final name in [
+      'setup.com', 'screen.scr', 'run.hta', 'task.wsf',
+      'link.pif', 'panel.cpl', 'settings.reg', 'shortcut.lnk',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation('/downloads/$name'), isTrue,
+        reason: name);
+    }
+  });
+
+  test('trailing dots cannot hide an installer extension', () {
+    expect(FileOpenSafety.requiresConfirmation('/downloads/install.apk.'), isTrue);
+    expect(FileOpenSafety.requiresConfirmation(
+      '/downloads/run.cmd...   '), isTrue);
+    expect(FileOpenSafety.requiresConfirmation('/downloads/report.pdf.'), isFalse);
+    expect(FileOpenSafety.requiresConfirmation('/downloads/archive.tar.gz'), isFalse);
+  });
+
   test('ordinary downloaded files open without a new confirmation', () {
     for (final name in [
       'movie.mp4', 'photo.jpg', 'report.pdf', 'archive.zip', 'notes.txt',

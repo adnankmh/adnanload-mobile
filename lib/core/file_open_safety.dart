@@ -7,7 +7,7 @@ class FileOpenSafety {
   FileOpenSafety._();
 
   static final RegExp _riskyExtension = RegExp(
-    r'\.(?:apk|apks|xapk|aab|exe|msi|bat|cmd|ps1|sh|jar|vbs)$',
+    r'\.(?:apk|apks|xapk|aab|exe|msi|bat|cmd|ps1|sh|jar|vbs|com|scr|hta|wsf|pif|cpl|reg|lnk)$',
     caseSensitive: false,
   );
 
@@ -25,7 +25,10 @@ class FileOpenSafety {
         .split(RegExp(r'[/\\]'))
         .last
         .replaceAll(_hiddenFormatting, '')
-        .trim();
+        .trim()
+        // Windows may ignore trailing dots/spaces in file names. Treat
+        // disguised installer extensions conservatively on every platform.
+        .replaceFirst(RegExp(r'[. ]+$'), '');
     return _riskyExtension.hasMatch(basename);
   }
 }
