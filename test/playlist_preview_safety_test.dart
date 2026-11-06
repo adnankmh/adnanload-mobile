@@ -43,5 +43,23 @@ void main() {
             reason: 'Unsafe thumbnail URL: $candidate');
       }
     });
+
+    test('rejects DNS and numeric aliases for loopback/private hosts', () {
+      for (final candidate in <String>[
+        'https://localhost./thumbnail.png',
+        'https://127.1/thumbnail.png',
+        'https://2130706433/thumbnail.png',
+        'https://0x7f000001/thumbnail.png',
+        'https://10.0.0.1/thumbnail.png',
+        'https://169.254.1.2/thumbnail.png',
+        'https://cdn.example.com.evil.internal/thumbnail.png',
+      ]) {
+        expect(PlaylistExplorer.safeThumbnailUrl(candidate), isEmpty,
+            reason: 'Unsafe thumbnail alias: $candidate');
+      }
+      const publicCdn = 'https://cdn.example.com:443/thumb.jpg?sig=a%2Bb';
+      expect(PlaylistExplorer.safeThumbnailUrl(publicCdn), publicCdn);
+    });
+
   });
 }
