@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../services/download_repository.dart';
 import '../services/quick_capture.dart';
 import '../widgets/ultimate_tools_panel.dart';
+import '../widgets/settings_media_engine_tile.dart';
 import 'package:flutter/services.dart';
 
 
@@ -153,25 +154,7 @@ class SettingsPage extends StatelessWidget {
           }),
       ])),
       const SizedBox(height:16),
-      Card(child:Padding(padding:const EdgeInsets.all(13),child:Column(children:[
-        SwitchListTile(secondary:const Icon(Icons.autorenew_rounded),
-          title:Text(t('autoEngineUpdates')), subtitle:Text(t('engineUpdatePolicy')),
-          value:repo.autoUpdateMediaEngine,
-          onChanged:(v)=>repo.updateSettings(newAutoUpdateMediaEngine:v)),
-        ListTile(leading:const Icon(Icons.system_update_alt_rounded),title:Text(t('updateEngine')),
-          subtitle:Text(t('engineUpdateInfo')),
-          onTap:() async {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(t('engineUpdateStarted'))));
-            try {
-              await repo.updateMediaEngine();
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content:Text(t('engineUpdateSuccess'))));
-            } catch (e) {
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content:Text('${t('engineUpdateFailed')}: $e')));
-            }
-          }),
-      ]))),
+      SettingsMediaEngineTile(repo:repo,strings:strings),
       const SizedBox(height:16),
       Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
         Icon(Icons.workspace_premium_rounded,size:42,color:Theme.of(context).colorScheme.primary),
