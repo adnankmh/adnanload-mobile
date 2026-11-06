@@ -34,6 +34,27 @@ class DownloadEntry {
     this.scheduledExternally = false, this.priority = 5,
     this.retryAttempts = 0, this.retryAt = 0});
 
+  // Corrupted or older history must not cause an otherwise recoverable
+  // download to disappear from the queue. Native progress callbacks can also
+  // supply non-finite values that jsonEncode cannot serialize.
+  static double _progress(Object? value) {
+    if (value is! num || !value.isFinite) return 0;
+    return value.toDouble().clamp(0.0, 1.0).toDouble();
+  }
+
+  static double _speed(Object? value) {
+    if (value is! num || !value.isFinite || value < 0) return 0;
+    return value.toDouble();
+  }
+
+  static int _integer(Object? value, int fallback, {int? min, int? max}) {
+    if (value is! num || !value.isFinite) return fallback;
+    final number = value.toInt();
+    if (min != null && number < min) return min;
+    if (max != null && number > max) return max;
+    return number;
+  }
+
   factory DownloadEntry.fromJson(Map<String, dynamic> json) => DownloadEntry(
     id: json['id']?.toString() ?? '',
     url: json['url']?.toString() ?? '',
@@ -43,27 +64,27 @@ class DownloadEntry {
     quality: json['quality']?.toString() ?? 'best',
     path: json['path']?.toString() ?? '',
     error: json['error']?.toString() ?? '',
-    progress: (json['progress'] as num?)?.toDouble() ?? 0,
-    speed: (json['speed'] as num?)?.toDouble() ?? 0,
-    addedAt: (json['addedAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+    progress: _progress(json['progress']),
+    speed: _speed(json['speed']),
+    addedAt: _integer(json['addedAt'], DateTime.now().millisecondsSinceEpoch, min: 0),
     isPlaylist: json['isPlaylist'] == true,
     playlistItems: json['playlistItems']?.toString() ?? '',
     audioFormat: json['audioFormat']?.toString() ?? 'mp3',
     expectedSha256: json['expectedSha256']?.toString() ?? '',
     actualSha256: json['actualSha256']?.toString() ?? '',
-    scheduledAt: (json['scheduledAt'] as num?)?.toInt() ?? 0,
+    scheduledAt: _integer(json['scheduledAt'], 0, min: 0),
     autoQueue: json['autoQueue'] == true,
     nativeQueued: json['nativeQueued'] == true,
     scheduledExternally: json['scheduledExternally'] == true,
-    priority: (json['priority'] as num?)?.toInt() ?? 5,
-    retryAttempts: ((json['retryAttempts'] as num?)?.toInt() ?? 0).clamp(0, 3).toInt(),
-    retryAt: (json['retryAt'] as num?)?.toInt() ?? 0,
+    priority: _integer(json['priority'], 5, min: 0, max: 10),
+    retryAttempts: _integer(json['retryAttempts'], 0, min: 0, max: 3),
+    retryAt: _integer(json['retryAt'], 0, min: 0),
   );
 
   Map<String, dynamic> toJson() => {
     'id': id, 'url': url, 'name': name, 'kind': kind, 'status': status,
-    'quality': quality, 'path': path, 'error': error, 'progress': progress,
-    'speed': speed, 'addedAt': addedAt,
+    'quality': quality, 'path': path, 'error': error, 'progress': _progress(progress),
+    'speed': _speed(speed), 'addedAt': addedAt,
     'isPlaylist': isPlaylist, 'playlistItems': playlistItems, 'audioFormat': audioFormat,
     'expectedSha256': expectedSha256, 'actualSha256': actualSha256,
     'scheduledAt': scheduledAt, 'autoQueue': autoQueue,
