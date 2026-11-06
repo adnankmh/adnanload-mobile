@@ -100,4 +100,60 @@ void main() {
     final name = tester.widget<TextField>(find.byType(TextField).at(1));
     expect(name.controller!.text, 'Current preview.mp4');
   });
+
+  testWidgets('failed preview shows retryable error without a stuck spinner', (tester) async {
+    final repo = _ControlledRepository();
+    await _showSheet(tester, repo);
+    repo.titleRequests.single.complete(null);
+    await tester.pump();
+
+    final previewButton = find.text('Preview media details');
+    await tester.ensureVisible(previewButton);
+    await tester.tap(previewButton);
+    await tester.pump();
+    expect(repo.previewRequests, hasLength(1));
+
+    repo.previewRequests.single.completeError(StateError('offline'));
+    await tester.pump();
+
+    expect(find.text('Could not fetch media information for this URL'), findsOneWidget);
+    final button = tester.widget<OutlinedButton>(
+      find.ancestor(of: previewButton, matching: find.byType(OutlinedButton)));
+    expect(button.onPressed, isNotNull);
+  });
+
+  testWidgets('failed title suggestion keeps the existing name and clears loading', (tester) async {
+    final repo = _ControlledRepository();
+    await _showSheet(tester, repo);
+    expect(repo.titleRequests, hasLength(1));
+
+    final before = tester.widget<TextField>(find.byType(TextField).at(1))
+        .controller!.text;
+    repo.titleRequests.single.completeError(StateError('offline'));
+    await tester.pump();
+
+    final name = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(name.controller!.text, before);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('stale failed preview does not show an error for the new URL', (tester) async {
+    final repo = _ControlledRepository();
+    await _showSheet(tester, repo);
+    repo.titleRequests.single.complete(null);
+    await tester.pump();
+
+    final previewButton = find.text('Preview media details');
+    await tester.ensureVisible(previewButton);
+    await tester.tap(previewButton);
+    await tester.pump();
+
+    await tester.enterText(
+      find.byType(TextField).first, 'https://example.com/new-url');
+    repo.previewRequests.single.completeError(StateError('obsolete'));
+    await tester.pump();
+
+    expect(find.text('Could not fetch media information for this URL'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 }

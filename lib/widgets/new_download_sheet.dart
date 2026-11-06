@@ -78,17 +78,29 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
     final serial = ++requestSerial;
     final requestedKind = kind;
     setState(() { loadingName = true; error = ''; preview = null; });
-    final result = await widget.repo.inspectMedia(candidate);
-    if (!mounted || serial != requestSerial ||
-        candidate != url.text.trim() || kind != requestedKind) return;
-    setState(() {
-      preview = result;
-      loadingName = false;
-      if (result == null) error = widget.strings.t('noPreview');
-      if (!userEditedName && result != null && result.title.isNotEmpty) {
-        filename.text = '${UrlGuard.safeName(result.title)}.${kind == 'mp3' ? audioFormat : 'mp4'}';
-      }
-    });
+    try {
+      final result = await widget.repo.inspectMedia(candidate);
+      if (!mounted || serial != requestSerial ||
+          candidate != url.text.trim() || kind != requestedKind) return;
+      setState(() {
+        preview = result;
+        loadingName = false;
+        if (result == null) error = widget.strings.t('noPreview');
+        if (!userEditedName && result != null && result.title.isNotEmpty) {
+          filename.text = '${UrlGuard.safeName(result.title)}.${kind == 'mp3' ? audioFormat : 'mp4'}';
+        }
+      });
+    } catch (_) {
+      // A failed metadata request must not leave the preview button disabled.
+      // Errors from an obsolete URL/mode must never replace the current UI.
+      if (!mounted || serial != requestSerial ||
+          candidate != url.text.trim() || kind != requestedKind) return;
+      setState(() {
+        loadingName = false;
+        preview = null;
+        error = widget.strings.t('noPreview');
+      });
+    }
   }
 
   Future<void> _selectSchedule() async {
@@ -117,16 +129,24 @@ class _NewDownloadSheetState extends State<NewDownloadSheet> {
       return;
     }
     setState(() { loadingName = true; error = ''; });
-    final suggested = await widget.repo.suggestMediaTitle(candidate);
-    if (!mounted || serial != requestSerial ||
-        candidate != url.text.trim() || kind != requestedKind ||
-        playlist != requestedPlaylist || audioFormat != requestedFormat) return;
-    setState(() {
-      loadingName = false;
-      if (suggested != null && !userEditedName) {
-        filename.text = playlist ? suggested : '$suggested.${kind == 'mp3' ? audioFormat : 'mp4'}';
-      }
-    });
+    try {
+      final suggested = await widget.repo.suggestMediaTitle(candidate);
+      if (!mounted || serial != requestSerial ||
+          candidate != url.text.trim() || kind != requestedKind ||
+          playlist != requestedPlaylist || audioFormat != requestedFormat) return;
+      setState(() {
+        loadingName = false;
+        if (suggested != null && !userEditedName) {
+          filename.text = playlist ? suggested : '$suggested.${kind == 'mp3' ? audioFormat : 'mp4'}';
+        }
+      });
+    } catch (_) {
+      // Title suggestions are optional; preserve the filename and allow retry.
+      if (!mounted || serial != requestSerial ||
+          candidate != url.text.trim() || kind != requestedKind ||
+          playlist != requestedPlaylist || audioFormat != requestedFormat) return;
+      setState(() => loadingName = false);
+    }
   }
 
   Future<void> _start(bool now) async {
