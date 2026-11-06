@@ -76,6 +76,56 @@ class ApkSizeReportTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Unsafe APK entry path"):
                     inspect_apk(apk)
 
+    def test_accepts_normal_directory_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk = Path(tmp) / "app-release.apk"
+            with zipfile.ZipFile(apk, "w") as z:
+                z.writestr("assets/", b"")
+                z.writestr("assets/data.bin", b"data")
+            report = inspect_apk(apk)
+            self.assertEqual(
+                [item["path"] for item in report["top_non_native_files"]],
+                ["assets/data.bin"],
+            )
+
+    def test_rejects_unsafe_directory_records(self):
+        for path in ("../", "assets/../", "assets//", "/assets/",
+                     "C:/assets/"):
+            with self.subTest(path=path), tempfile.TemporaryDirectory() as tmp:
+                apk = Path(tmp) / "app-release.apk"
+                with zipfile.ZipFile(apk, "w") as z:
+                    z.writestr(path, b"")
+                with self.assertRaisesRegex(ValueError, "Unsafe APK entry path"):
+                    inspect_apk(apk)
+
+    def test_rejects_control_characters_and_drive_prefixes(self):
+        for path in ("C:/classes.dex", "assets/a\n.txt",
+                     "assets/\u202ereversed.dex", "assets/\u200bhidden.bin"):
+            with self.subTest(path=path), tempfile.TemporaryDirectory() as tmp:
+                apk = Path(tmp) / "app-release.apk"
+                with zipfile.ZipFile(apk, "w") as z:
+                    z.writestr(path, b"x")
+                with self.assertRaisesRegex(ValueError, "Unsafe APK entry path"):
+                    inspect_apk(apk)
+
+    def test_equal_sized_entries_sort_by_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apk = Path(tmp) / "app-arm64-v8a-release.apk"
+            with zipfile.ZipFile(apk, "w", compression=zipfile.ZIP_STORED) as z:
+                z.writestr("lib/arm64-v8a/z.so", b"n" * 40)
+                z.writestr("lib/arm64-v8a/a.so", b"n" * 40)
+                z.writestr("assets/z.bin", b"a" * 20)
+                z.writestr("assets/a.bin", b"a" * 20)
+            report = inspect_apk(apk)
+            self.assertEqual(
+                [item["path"] for item in report["top_native_files"]],
+                ["lib/arm64-v8a/a.so", "lib/arm64-v8a/z.so"],
+            )
+            self.assertEqual(
+                [item["path"] for item in report["top_non_native_files"]],
+                ["assets/a.bin", "assets/z.bin"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

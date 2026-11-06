@@ -9,6 +9,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 import zipfile
 from collections import defaultdict
 from pathlib import Path
@@ -27,16 +28,22 @@ def inspect_apk(apk: Path) -> dict:
         if bad:
             raise ValueError(f"Corrupted APK entry: {bad}")
         for entry in archive.infolist():
+            # Validate directory records too; a malicious "../" directory
+            # must not bypass the archive integrity checks.
+            name = entry.filename
+            path = name[:-1] if entry.is_dir() else name
+            parts = path.split("/")
+            if (not path or path.startswith("/") or "\\" in path
+                    or re.match(r"^[A-Za-z]:", path)
+                    or any(part in ("", ".", "..") for part in parts)
+                    or any(unicodedata.category(ch) in ("Cc", "Cf")
+                           for ch in path)):
+                raise ValueError(f"Unsafe APK entry path: {name}")
+            if name in seen_entries:
+                raise ValueError(f"Duplicate APK entry: {name}")
+            seen_entries.add(name)
             if entry.is_dir():
                 continue
-            # Reject ambiguous archive entries before trusting the size report.
-            if entry.filename in seen_entries:
-                raise ValueError(f"Duplicate APK entry: {entry.filename}")
-            seen_entries.add(entry.filename)
-            parts = entry.filename.split("/")
-            if (entry.filename.startswith("/") or "\\" in entry.filename
-                    or any(part in ("", ".", "..") for part in parts)):
-                raise ValueError(f"Unsafe APK entry path: {entry.filename}")
             if len(parts) >= 3 and parts[0] == "lib":
                 by_abi[parts[1]] += entry.compress_size
                 native_files.append((entry.filename, entry.compress_size))
@@ -74,13 +81,13 @@ def inspect_apk(apk: Path) -> dict:
         "top_native_files": [
             {"path": filename, "compressed_mb": round(byte_count / 1_000_000, 2)}
             for filename, byte_count in sorted(
-                native_files, key=lambda row: row[1], reverse=True
+                native_files, key=lambda row: (-row[1], row[0])
             )[:18]
         ],
         "top_non_native_files": [
             {"path": filename, "compressed_mb": round(byte_count / 1_000_000, 2)}
             for filename, byte_count in sorted(
-                non_native_files, key=lambda row: row[1], reverse=True
+                non_native_files, key=lambda row: (-row[1], row[0])
             )[:18]
         ],
     }
