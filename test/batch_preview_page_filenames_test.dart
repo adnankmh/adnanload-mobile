@@ -11,6 +11,13 @@ void main() {
       'https://example.org/export.PHP5?type=zip',
       'https://example.org/item.aspx?id=4',
       'https://example.org/view.jsp?name=archive.zip',
+      'https://example.org/form.shtml',
+      'https://example.org/render.ashx?file=archive.zip',
+      'https://example.org/view.cgi?file=report.pdf',
+      'https://example.org/report.cfm?download=1',
+      'https://example.org/handler.do?file=video.mp4',
+      'https://example.org/run.action?file=archive.zip',
+      'https://example.org/legacy.php83?file=archive.zip',
     ]) {
       final preview = BatchLinkPreview.fromUrl(url);
       expect(preview.kind, 'direct', reason: url);
@@ -40,6 +47,13 @@ void main() {
       BatchLinkPreview.fromUrl('https://example.org/archive.zip')
           .suggestedName,
       'archive.zip',
+    );
+    // Only page/script suffixes are excluded; ordinary downloadable file
+    // extensions must continue to preview without a network request.
+    expect(
+      BatchLinkPreview.fromUrl('https://example.org/data.csv?sig=keep')
+          .suggestedName,
+      'data.csv',
     );
   });
 
