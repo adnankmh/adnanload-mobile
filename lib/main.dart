@@ -258,7 +258,8 @@ class _AdnanHomeState extends State<AdnanHome> with WidgetsBindingObserver {
     final largeScreen = MediaQuery.sizeOf(context).width >= 700;
     final content = IndexedStack(index: page, children: [
       NeonHomePage(repo: widget.repo, strings: s,
-        onDownload: _showDownload, onSeeAll: () => setState(() => page = 1)),
+        onDownload: _showDownload, onBatchPaste: (links) => _showBatch(links),
+        onSeeAll: () => setState(() => page = 1)),
       DownloadsPage(repo: widget.repo, strings: s,
         addDownload: () => _showDownload('', 'direct')),
       BrowserPage(strings: s, repo: widget.repo, onDownload: _showDownload),
