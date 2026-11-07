@@ -18,7 +18,7 @@ void main() {
   });
 
   test('supports empty, singleton and separated selections', () {
-    expect(PlaylistSelection.compact([]), '');
+    expect(() => PlaylistSelection.compact([]), throwsFormatException);
     expect(PlaylistSelection.compact([7]), '7');
     expect(PlaylistSelection.compact([1, 3, 5]), '1,3,5');
   });
@@ -41,5 +41,26 @@ void main() {
   test('rejects sparse selections exceeding the parser limit', () {
     final sparse = List<int>.generate(100, (index) => index * 2 + 1);
     expect(() => PlaylistSelection.compact(sparse), throwsFormatException);
+  });
+
+  test('never converts an empty explicit selection into a full-playlist request', () {
+    expect(() => PlaylistSelection.compact(<int>[]), throwsFormatException);
+    // The empty parser expression intentionally means the whole playlist,
+    // so explicit selection encoding must not return it.
+    expect(PlaylistRules.parseItems(''), '');
+  });
+
+  test('round trips a 100-item selection at the maximum supported index', () {
+    final selected = List<int>.generate(100, (index) => 99901 + index);
+    final expression = PlaylistSelection.compact(selected);
+    expect(expression, '99901-100000');
+    expect(PlaylistSelection.expand(expression), selected);
+  });
+
+  test('preserves separated runs and never includes unselected positions', () {
+    final selected = [1, 2, 3, 7, 8, 10, 20, 21, 23, 100000];
+    final expression = PlaylistSelection.compact(selected.reversed);
+    expect(expression, '1-3,7-8,10,20-21,23,100000');
+    expect(PlaylistSelection.expand(expression), selected);
   });
 }

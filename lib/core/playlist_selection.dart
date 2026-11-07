@@ -10,7 +10,10 @@ class PlaylistSelection {
   /// than silently widening a range or producing an unusable expression.
   static String compact(Iterable<int> indices) {
     final sorted = indices.toSet().toList()..sort();
-    if (sorted.isEmpty) return '';
+    // An empty explicit selection must never mean 'download the entire playlist'.
+    if (sorted.isEmpty) {
+      throw const FormatException('No playlist items selected');
+    }
     if (sorted.length > 100 || sorted.first < 1 || sorted.last > 100000) {
       throw const FormatException('Invalid playlist selection');
     }
