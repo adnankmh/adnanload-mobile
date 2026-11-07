@@ -36,4 +36,26 @@ void main() {
       'https://example.org/file\u2069.pdf',
     ), <String>['https://example.org/safe.zip?signature=abc,;']);
   });
+
+  test('rejects C1 and legacy invisible separators in unescaped links', () {
+    for (final url in <String>[
+      'https://example.org/file\u0085.zip',
+      'https://example.org/file\u009F.zip',
+      'https://example.org/file\u180E.zip',
+      'https://exa\u180Emple.org/archive.zip',
+      'https://example.org/file.zip?token=a\u0080b',
+    ]) {
+      expect(UrlGuard.validate(url), isNull, reason: url);
+    }
+  });
+
+  test('retains escaped control bytes without changing signed query values', () {
+    for (final url in <String>[
+      'https://example.org/file%C2%85.zip',
+      'https://example.org/file%E1%A0%8E.zip',
+      'https://example.org/archive.zip?token=a%2Cb%3B',
+    ]) {
+      expect(UrlGuard.validate(url)?.toString(), url, reason: url);
+    }
+  });
 }
