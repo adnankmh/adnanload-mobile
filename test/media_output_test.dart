@@ -68,6 +68,18 @@ void main() {
       _UnavailableDirectory(root.path),
     ), isFalse);
   });
+
+  test('denied directory stat fails closed while healthy output still works', () async {
+    expect(await MediaOutput.hasPlaylistMedia(
+      _PermissionDeniedDirectory(root.path),
+    ), isFalse);
+
+    final valid = await File('${root.path}/video.m4a')
+        .writeAsBytes([1, 2, 3]);
+    expect(await MediaOutput.isFinishedFile(valid), isTrue);
+    expect(await MediaOutput.singleFile(root, 'video', valid.path), valid.path);
+  });
+
 }
 
 class _VanishingFile implements File {
@@ -98,6 +110,20 @@ class _UnavailableDirectory implements Directory {
     bool recursive = false,
     bool followLinks = true,
   }) => Stream.error(const FileSystemException('Storage unavailable'));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PermissionDeniedDirectory implements Directory {
+  _PermissionDeniedDirectory(this.path);
+
+  @override
+  final String path;
+
+  @override
+  Future<bool> exists() async =>
+      throw const FileSystemException('Storage permission revoked');
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
