@@ -35,24 +35,7 @@ class BatchLinkPreview {
     // Uri.pathSegments decodes escapes, so an encoded slash/backslash may
     // conceal multiple path components inside the apparent last segment.
     final pageLike = RegExp(
-      r'\.(?:s?html?|xhtml|php\d*|aspx?|ashx|jspx?|cfm|cgi|do|action),
-      caseSensitive: false,
-    ).hasMatch(last);
-    final hasEncodedSeparator = last.contains('/') || last.contains('\\');
-    final fileLike = kind == 'direct' &&
-        !pageLike &&
-        !hasEncodedSeparator &&
-        RegExp(r'\.[a-zA-Z0-9]{1,16}$').hasMatch(last);
-    return BatchLinkPreview(
-      url: url,
-      host: uri.host,
-      kind: kind,
-      isPlaylist: playlist,
-      suggestedName: fileLike ? UrlGuard.safeName(last) : null,
-    );
-  }
-}
-,
+      r'\.(?:s?html?|xhtml|php\d*|aspx?|ashx|jspx?|cfm|cgi|do|action)$',
       caseSensitive: false,
     ).hasMatch(last);
     final hasEncodedSeparator = last.contains('/') || last.contains('\\');
