@@ -102,4 +102,38 @@ void main() {
     expect(restored.retryAttempts, 2);
     expect(restored.retryAt, 450);
   });
+
+  test('extreme persisted timestamps are capped at DateTime limits', () {
+    const maxTimestamp = 8640000000000000;
+    final item = DownloadEntry.fromJson({
+      ...base(),
+      'addedAt': maxTimestamp + 1,
+      'scheduledAt': double.maxFinite,
+      'retryAt': maxTimestamp + 1,
+    });
+    expect(item.addedAt, maxTimestamp);
+    expect(item.scheduledAt, maxTimestamp);
+    expect(item.retryAt, maxTimestamp);
+  });
+
+  test('mutated numeric fields are normalized on JSON export', () {
+    final item = DownloadEntry.fromJson(base());
+    item.progress = double.negativeInfinity;
+    item.speed = -12;
+    item.addedAt = -5;
+    item.scheduledAt = 8640000000000001;
+    item.retryAt = -100;
+    item.priority = 99;
+    item.retryAttempts = -7;
+
+    final saved = jsonDecode(jsonEncode(item.toJson())) as Map<String, dynamic>;
+    expect(saved['progress'], 0);
+    expect(saved['speed'], 0);
+    expect(saved['addedAt'], 0);
+    expect(saved['scheduledAt'], 8640000000000000);
+    expect(saved['retryAt'], 0);
+    expect(saved['priority'], 10);
+    expect(saved['retryAttempts'], 0);
+    expect(saved['nativeQueued'], isTrue);
+  });
 }
