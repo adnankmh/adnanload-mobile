@@ -5,11 +5,13 @@ import 'url_guard.dart';
 /// Browser pages and streaming manifests remain in WebView, where the user
 /// can explicitly choose the media extractor. The URL is never rewritten:
 /// signed query parameters must reach the downloader unchanged.
+/// Inline-viewable images and text remain in WebView; users can explicitly
+/// choose Download for these instead of losing the browser preview.
 class BrowserDownloadRouter {
   BrowserDownloadRouter._();
 
   static final RegExp _directFileExtension = RegExp(
-    r'\.(?:zip|rar|7z|tar|gz|tgz|bz2|zst|apk|pdf|epub|mp3|m4a|wav|flac|ogg|opus|aac|mp4|mkv|webm|mov|avi|m4v|iso|exe|msi|deb|rpm|dmg|docx?|xlsx?|pptx?|txt|csv|rtf|png|jpe?g|gif|webp|bmp)$',
+    r'\.(?:zip|rar|7z|tar|gz|tgz|bz2|zst|apk|pdf|epub|mp3|m4a|wav|flac|ogg|opus|aac|mp4|mkv|webm|mov|avi|m4v|iso|exe|msi|deb|rpm|dmg|docx?|xlsx?|pptx?)$',
     caseSensitive: false,
   );
 

@@ -17,11 +17,10 @@ void main() {
     }
   });
 
-  test('intercepts additional common audio, video, image and text files', () {
+  test('intercepts additional downloadable media and archives', () {
     for (final extension in [
       'wav', 'flac', 'ogg', 'opus', 'aac', 'mov', 'avi', 'm4v',
-      'txt', 'csv', 'rtf', 'png', 'jpg', 'jpeg', 'gif',
-      'webp', 'bmp', 'msi', 'deb', 'rpm', 'dmg', 'tgz', 'bz2', 'zst',
+      'msi', 'deb', 'rpm', 'dmg', 'tgz', 'bz2', 'zst',
     ]) {
       expect(
         BrowserDownloadRouter.isDirectFileNavigation(
@@ -35,13 +34,37 @@ void main() {
   test('signed queries, fragments and uppercase extensions remain valid', () {
     expect(
       BrowserDownloadRouter.isDirectFileNavigation(
-        'https://cdn.example.com/photo.JPEG?signature=a%2Fb%3Dc;expires=42#view'),
+        'https://cdn.example.com/archive.ZIP?signature=a%2Fb%3Dc;expires=42#view'),
       isTrue,
     );
     expect(
       BrowserDownloadRouter.isDirectFileNavigation(
-        'https://cdn.example.com/report%2ECSV?token=a%26b'),
+        'https://cdn.example.com/movie%2EMP4?token=a%26b'),
       isTrue,
+    );
+  });
+
+  test('inline-viewable image and text links stay in WebView', () {
+    for (final extension in [
+      'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'txt', 'csv', 'rtf',
+    ]) {
+      expect(
+        BrowserDownloadRouter.isDirectFileNavigation(
+          'https://cdn.example.com/preview.$extension?download=0'),
+        isFalse,
+        reason: extension,
+      );
+    }
+    // Encoded extensions and signed query parameters cannot bypass this.
+    expect(
+      BrowserDownloadRouter.isDirectFileNavigation(
+        'https://cdn.example.com/photo%2EJPEG?signature=a%2Fb'),
+      isFalse,
+    );
+    expect(
+      BrowserDownloadRouter.isDirectFileNavigation(
+        'https://cdn.example.com/report%2ECSV?token=a%26b'),
+      isFalse,
     );
   });
 
