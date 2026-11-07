@@ -13,7 +13,9 @@ class BrowserDownloadRouter {
     caseSensitive: false,
   );
 
-  static bool isDirectFileNavigation(String url) {
+  static bool isDirectFileNavigation(String url, {bool isMainFrame = true}) {
+    // Subframes and embedded ads must not enqueue native downloads.
+    if (!isMainFrame) return false;
     final uri = UrlGuard.validate(url);
     if (uri == null) return false;
     // Uri.path excludes query strings and fragments, even for signed URLs.

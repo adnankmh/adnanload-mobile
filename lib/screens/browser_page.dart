@@ -57,7 +57,8 @@ class _BrowserPageState extends State<BrowserPage> with WidgetsBindingObserver {
         onPageFinished: (_) => _scanPage(web),
         onNavigationRequest:(request) {
           if (UrlGuard.validate(request.url) == null) return NavigationDecision.prevent;
-          if (BrowserDownloadRouter.isDirectFileNavigation(request.url)) {
+          if (BrowserDownloadRouter.isDirectFileNavigation(
+              request.url, isMainFrame: request.isMainFrame)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) widget.onDownload(request.url, 'direct');
             });

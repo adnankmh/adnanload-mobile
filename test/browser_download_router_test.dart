@@ -74,4 +74,12 @@ void main() {
           reason: url);
     }
   });
+
+  test('embedded frame links never trigger automatic native downloads', () {
+    const url = 'https://cdn.example.com/guide.pdf?token=valid';
+    expect(BrowserDownloadRouter.isDirectFileNavigation(
+      url, isMainFrame: false), isFalse);
+    expect(BrowserDownloadRouter.isDirectFileNavigation(
+      url, isMainFrame: true), isTrue);
+  });
 }
