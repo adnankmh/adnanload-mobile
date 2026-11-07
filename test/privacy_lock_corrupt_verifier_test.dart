@@ -74,4 +74,23 @@ void main() {
     await lock.enable('654321');
     expect(await lock.verify('654321'), isTrue);
   });
+
+  test('invalid PIN formats are rejected and count toward lockout', () async {
+    final storage = _MemorySecureStorage();
+    final lock = PrivacyLock(storage: storage);
+    await lock.enable('123456');
+    final invalidPins = <String>[
+      List.filled(100000, '1').join(),
+      '１２３４５６',
+      '123 456',
+      '12345',
+      '1234567890123',
+    ];
+    for (final pin in invalidPins) {
+      expect(await lock.verify(pin), isFalse);
+    }
+    // Five invalid-format attempts must not allow the correct PIN to bypass
+    // the same temporary lockout used for ordinary incorrect PIN attempts.
+    expect(await lock.verify('123456'), isFalse);
+  });
 }
