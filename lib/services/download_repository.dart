@@ -88,7 +88,7 @@ class DownloadRepository extends ChangeNotifier {
     crashCount = await CrashJournal.crashCount();
     theme = _prefs!.getString('theme') ?? 'dark';
     if (!const {'dark', 'light', 'gold'}.contains(theme)) theme = 'dark';
-    language = LanguagePreference.normalize(_prefs!.getString('language'));
+    language = LanguagePreference.normalize(_prefs!.get('language'));
     wifiOnly = _prefs!.getBool('wifiOnly') ?? false;
     chargingOnly = _prefs!.getBool('chargingOnly') ?? false;
     batteryFloor = _prefs!.getInt('batteryFloor') ?? 0;

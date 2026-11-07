@@ -4,8 +4,11 @@
 class LanguagePreference {
   static const supported = <String>['ar', 'en'];
 
-  static bool isSupported(String? value) => supported.contains(value);
+  /// Accept only exact supported codes, including when a persisted value has
+  /// an unexpected type (for example, a corrupted SharedPreferences entry).
+  static bool isSupported(Object? value) =>
+      value is String && supported.contains(value);
 
-  static String normalize(String? value) =>
-      isSupported(value) ? value! : 'ar';
+  static String normalize(Object? value) =>
+      isSupported(value) ? value as String : 'ar';
 }
