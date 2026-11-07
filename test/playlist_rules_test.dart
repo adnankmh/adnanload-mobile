@@ -24,11 +24,19 @@ void main() {
       'https://www.youtube.com/playlist?list=PLvalid'), isTrue);
     expect(PlaylistRules.looksLikePlaylist(
       'https://music.youtube.com/playlist?list=PLmusic'), isTrue);
+    expect(PlaylistRules.looksLikePlaylist(
+      'https://www.youtube.com/playlist?list=PL_valid-01'), isTrue);
     for (final url in [
       'https://www.youtube.com/playlist',
       'https://www.youtube.com/playlist?list=',
       'https://www.youtube.com/playlist?list=%20%20',
       'https://www.youtube.com/playlist?list=PLone&list=PLtwo',
+      'https://www.youtube.com/playlist?list=PL%0Ainvalid',
+      'https://www.youtube.com/playlist?list=PL%00invalid',
+      'https://www.youtube.com/playlist?list=%20PLvalid',
+      'https://www.youtube.com/playlist?list=PLvalid%20',
+      'https://www.youtube.com/playlist?list=PL%2Fvalid',
+      'https://www.youtube.com/playlist?list=PL%E2%80%8Bvalid',
       'https://www.youtube.com/channel/abc?list=',
       'https://www.youtube.com/watch?v=abc&list=PLvalid',
     ]) {

@@ -30,8 +30,38 @@ class PlaylistRules {
       // A bare /playlist page or an empty/ambiguous list parameter is not
       // a playlist. Do not route it into playlist expansion/extraction.
       final ids = uri.queryParametersAll['list'];
-      final hasPlaylistId =
-          ids != null && ids.length == 1 && ids.single.trim().isNotEmpty;
+      // Playlist IDs are opaque ASCII tokens. Reject encoded whitespace,
+      // controls, separators and zero-width characters before extraction.
+      final hasPlaylistId = ids != null &&
+          ids.length == 1 &&
+          RegExp(r'^[A-Za-z0-9_-]+
+      return hasPlaylistId &&
+          (path.startsWith('/playlist') || !path.startsWith('/watch'));
+    }
+    // Preserve playlist-style routes on other media services.
+    // SoundCloud artist sets use /<artist>/sets/<slug>, not /sets/<slug>.
+    // Keep other providers' existing routing unchanged.
+    final isSoundCloud =
+        host == 'soundcloud.com' || host.endsWith('.soundcloud.com');
+    final artistSet = isSoundCloud && RegExp(r'/sets/[^/]+').hasMatch(path);
+    return path.contains('/playlist/') || path.startsWith('/sets/') ||
+        artistSet || path.contains('/collections/');
+  }
+
+  static bool looksLikeMediaSite(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    final host = uri.host.toLowerCase();
+    const supportedHints = <String>[
+      'youtube.com','youtu.be','instagram.com','facebook.com','fb.watch',
+      'tiktok.com','x.com','twitter.com','vimeo.com','dailymotion.com',
+      'twitch.tv','reddit.com','soundcloud.com','bandcamp.com',
+      'bilibili.com','pinterest.com','threads.net',
+    ];
+    return supportedHints.any((hint) => host == hint || host.endsWith('.$hint'));
+  }
+}
+).hasMatch(ids.single);
       return hasPlaylistId &&
           (path.startsWith('/playlist') || !path.startsWith('/watch'));
     }

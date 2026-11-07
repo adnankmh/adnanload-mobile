@@ -30,6 +30,8 @@ void main() {
   expect(SmartLink.kind('https://youtube.com/playlist?list=%20'), 'video');
   expect(SmartLink.kind('https://youtube.com/playlist?list=one&list=two'), 'video');
   expect(SmartLink.kind('https://youtube.com/playlist?list=PLvalid'), 'playlist');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=PL%0Ainvalid'), 'video');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=PL_valid-01'), 'playlist');
  });
 
 }

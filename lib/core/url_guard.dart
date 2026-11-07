@@ -1,8 +1,16 @@
 import 'dart:convert';
 
 class UrlGuard {
+  // Unescaped invisible controls can disguise hosts, filenames and signed
+  // queries. Preserve Arabic ZWNJ/ZWJ and legitimate percent-encoded bytes.
+  static final RegExp _hiddenUrlControls = RegExp(
+    r'[\u0000-\u001F\u007F-\u009F\u00AD\u061C\u180E\u200B\u200E\u200F\u2028-\u202E\u2060-\u206F\uFEFF]',
+  );
+
   static Uri? validate(String input) {
-    Uri? uri = Uri.tryParse(input.trim());
+    final trimmed = input.trim();
+    if (_hiddenUrlControls.hasMatch(trimmed)) return null;
+    Uri? uri = Uri.tryParse(trimmed);
     if (uri == null || !uri.hasAuthority ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
         uri.host.isEmpty || uri.userInfo.isNotEmpty) return null;
