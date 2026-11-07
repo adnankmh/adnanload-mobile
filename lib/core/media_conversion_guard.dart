@@ -72,7 +72,10 @@ class MediaConversionGuard {
         return false;
       }
       final canonicalPath = await output.resolveSymbolicLinks();
-      if (canonicalPath == source.canonicalPath) return false;
+      if (canonicalPath == source.canonicalPath ||
+          await FileSystemEntity.identical(output.path, source.canonicalPath)) {
+        return false;
+      }
       final stat = await output.stat();
       return stat.type == FileSystemEntityType.file && stat.size > 0;
     } on FileSystemException {
@@ -82,13 +85,26 @@ class MediaConversionGuard {
 
   /// Only remove a regular output file created for this attempt. In particular,
   /// never follow or delete a symlink that may have appeared in its place.
-  static Future<void> removePartialOutput(File output) async {
+  static Future<void> removePartialOutput(
+    File output, {
+    File? protectedSource,
+  }) async {
     try {
       if (await FileSystemEntity.type(
             output.path,
             followLinks: false,
           ) ==
           FileSystemEntityType.file) {
+        // A second path may be a hard link to the input. Never delete it.
+        if (protectedSource != null &&
+            await FileSystemEntity.type(protectedSource.path) ==
+                FileSystemEntityType.file &&
+            await FileSystemEntity.identical(
+              output.path,
+              protectedSource.path,
+            )) {
+          return;
+        }
         await output.delete();
       }
     } on FileSystemException {

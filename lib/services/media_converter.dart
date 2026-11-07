@@ -48,7 +48,10 @@ class MediaConverter {
       }
       return file.path;
     } catch (_) {
-      await MediaConversionGuard.removePartialOutput(file);
+      await MediaConversionGuard.removePartialOutput(
+        file,
+        protectedSource: source,
+      );
       rethrow;
     }
   }
