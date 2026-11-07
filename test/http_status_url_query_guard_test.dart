@@ -52,4 +52,36 @@ void main() {
         'status=503\nRetry-After: 120', 1),
         const Duration(seconds: 120));
   });
+
+  test('punctuation inside URLs cannot spoof permanent or rate-limit codes', () {
+    for (final url in [
+      'https://cdn.example.org/file?x=1;status=404',
+      'https://cdn.example.org/file?x=1,status=404',
+      'https://cdn.example.org/file?x=(status=404)',
+      'https://cdn.example.org/status=404',
+      'https://cdn.example.org/file?x=1;HTTP=503',
+    ]) {
+      final failure = 'SocketException: connection reset $url\n'
+          'Retry-After: 180';
+      expect(TransferPolicy.networkTransient(failure), isTrue, reason: url);
+      expect(TransferPolicy.shouldRetry(failure, 0), isTrue, reason: url);
+      expect(TransferPolicy.retryDelayForFailure(failure, 1),
+          const Duration(seconds: 10), reason: url);
+    }
+  });
+
+  test('real HTTP status after URL still governs retry and backoff', () {
+    const forbidden = 'SocketException: connection reset '
+        'https://cdn.example.org/file?status=503\nHTTP/2 403';
+    expect(TransferPolicy.networkTransient(forbidden), isFalse);
+    expect(TransferPolicy.shouldRetry(forbidden, 0), isFalse);
+
+    const throttled = 'SocketException: connection reset '
+        'https://cdn.example.org/file?status=404\nHTTP/3 503\n'
+        'Retry-After: 75';
+    expect(TransferPolicy.networkTransient(throttled), isTrue);
+    expect(TransferPolicy.retryDelayForFailure(throttled, 1),
+        const Duration(seconds: 75));
+  });
+
 }
