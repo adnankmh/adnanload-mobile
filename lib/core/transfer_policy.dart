@@ -5,6 +5,29 @@ import 'url_guard.dart';
 
 /// Deterministic queue policy. Never bypasses the Android OS scheduler.
 class TransferPolicy {
+  /// Extract status labels from log messages, not URL query parameters.
+  /// A URL such as ?status=404&http=503 must not suppress a legitimate
+  /// socket retry or create a false rate-limit delay. Preserve standalone
+  /// 'status=503' and 'HTTP=429' formats from native/extractor errors.
+  static final RegExp _httpStatus = RegExp(
+    r'(?:^|[\s:;,(])(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
+    caseSensitive: false,
+  );
+
+  // URL paths and queries may contain ';status=404' or ',HTTP=503'.
+  // Strip embedded URLs before interpreting response-status tokens.
+  static final RegExp _urlInFailure = RegExp(
+    r'https?://[^\s<>]+',
+    caseSensitive: false,
+  );
+
+  static Set<int> _statusCodes(String failure) {
+    final logText = failure.replaceAll(_urlInFailure, ' ');
+    return _httpStatus.allMatches(logText)
+        .map((match) => int.parse(match.group(1)!))
+        .toSet();
+  }
+
   /// Limit concurrent in-app direct transfers per host, regardless of scheme
   /// or port. Scheduled Android jobs remain owned by WorkManager.
   static String? directHost(String url) {
@@ -129,14 +152,15 @@ class TransferPolicy {
   }
 
   static bool networkTransient(String failure) {
-    final text = failure.toLowerCase();
+    // URLs are diagnostic context, not error messages. Their paths or signed
+    // queries can contain words such as 'timeout', 'drm' or 'login required';
+    // those must neither invent a retry nor suppress a real socket retry.
+    final text = failure.replaceAll(_urlInFailure, ' ').toLowerCase();
     // Extractors commonly report "HTTP Error 429", while native clients can
     // report "status code: 503". Plain substring matching missed both forms.
     // Recognize HTTP/1.1, HTTP/2 and HTTP/3 status lines as well as
     // extractor-style errors; do not mistake stale ranges for network outages.
-    final codes = RegExp(
-      r'\b(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
-    ).allMatches(text).map((match) => int.parse(match.group(1)!)).toSet();
+    final codes = _statusCodes(text);
     // A stale partial download (412/416) needs an explicit fresh request;
     // automatically retrying the same range can repeatedly corrupt a resume.
     if (codes.any((code) => const {400, 401, 403, 404, 410, 412, 416, 451}.contains(code)) ||
@@ -172,17 +196,18 @@ class TransferPolicy {
   static Duration? retryDelayForFailure(String failure, int attempt,
       {DateTime? now}) {
     final fallback = retryDelay(attempt);
-    final rateLimited = RegExp(
-      r'\b(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(?:429|503)\b',
-      caseSensitive: false,
-    ).hasMatch(failure);
+    final rateLimited = _statusCodes(failure).any(
+      (code) => code == 429 || code == 503,
+    );
     if (!rateLimited) return fallback;
     // Extractors and HTTP clients may report multiple Retry-After lines.
     // Using only the first can retry before a later, longer server deadline.
+    // A URL query such as ?retry-after:3600 is not a server header. Ignore
+    // URL text while retaining real multiline and inline Retry-After hints.
     final headers = RegExp(
       r'\bretry-after[ \t]*:[ \t]*([^\r\n]*)',
       caseSensitive: false,
-    ).allMatches(failure).toList();
+    ).allMatches(failure.replaceAll(_urlInFailure, ' ')).toList();
     if (headers.isEmpty) return fallback;
     // Malformed or excessive header sets require an explicit manual retry.
     if (headers.length > 16) return null;

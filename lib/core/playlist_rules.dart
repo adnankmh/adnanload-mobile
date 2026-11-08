@@ -21,15 +21,31 @@ class PlaylistRules {
 
   static bool looksLikePlaylist(String url) {
     final uri = Uri.tryParse(url);
-    if (uri == null) return false;
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) return false;
     final host = uri.host.toLowerCase();
     final path = uri.path.toLowerCase();
-    if ((host == 'youtube.com' || host.endsWith('.youtube.com') ||
-        host == 'music.youtube.com') &&
-        (path.startsWith('/playlist') ||
-         (uri.queryParameters.containsKey('list') && !path.startsWith('/watch')))) return true;
+    if (host == 'youtube.com' || host.endsWith('.youtube.com')) {
+      // A bare /playlist page or an empty/ambiguous list parameter is not
+      // a playlist. Do not route it into playlist expansion/extraction.
+      final ids = uri.queryParametersAll['list'];
+      // Playlist IDs are opaque ASCII tokens. Reject encoded whitespace,
+      // controls, separators and zero-width characters before extraction.
+      final hasPlaylistId = ids != null &&
+          ids.length == 1 &&
+          RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(ids.single);
+      return hasPlaylistId &&
+          (path.startsWith('/playlist') || !path.startsWith('/watch'));
+    }
+    // Preserve playlist-style routes on other media services.
+    // SoundCloud artist sets use /<artist>/sets/<slug>, not /sets/<slug>.
+    // Keep other providers' existing routing unchanged.
+    final isSoundCloud =
+        host == 'soundcloud.com' || host.endsWith('.soundcloud.com');
+    final artistSet = isSoundCloud && RegExp(r'/sets/[^/]+').hasMatch(path);
     return path.contains('/playlist/') || path.startsWith('/sets/') ||
-        path.contains('/collections/');
+        artistSet || path.contains('/collections/');
   }
 
   static bool looksLikeMediaSite(String url) {
