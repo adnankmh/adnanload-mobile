@@ -35,6 +35,38 @@ void main() {
         ['b', 'c', 'a']);
   });
 
+  test('name sorting uses natural order for numbered downloads', () {
+    final parts = [
+      item('ten', 'Episode10.mp4', 10, 5),
+      item('two', 'episode2.mp4', 20, 5),
+      item('one', 'EPISODE1.mp4', 30, 5),
+      item('twenty', 'episode20.mp4', 40, 5),
+    ];
+    expect(DownloadListSort.ordered(parts, 'name').map((e) => e.id),
+        ['one', 'two', 'ten', 'twenty']);
+    expect(parts.map((e) => e.id), ['ten', 'two', 'one', 'twenty']);
+  });
+
+  test('long numeric runs do not overflow and leading zeros tie by date', () {
+    final files = [
+      item('huge', 'part999999999999999999999999999999.zip', 10, 5),
+      item('small', 'part2.zip', 20, 5),
+      item('padded', 'part0002.zip', 30, 5),
+      item('next', 'part1000000000000000000000000000000.zip', 40, 5),
+    ];
+    expect(DownloadListSort.ordered(files, 'name').map((e) => e.id),
+        ['padded', 'small', 'huge', 'next']);
+  });
+
+  test('Arabic filenames with numbered parts sort naturally', () {
+    final files = [
+      item('ten', 'الجزء10.pdf', 10, 5),
+      item('two', 'الجزء2.pdf', 20, 5),
+    ];
+    expect(DownloadListSort.ordered(files, 'name').map((e) => e.id),
+        ['two', 'ten']);
+  });
+
   test('sorting never mutates the repository snapshot or queue priorities', () {
     DownloadListSort.ordered(source, 'priority');
     DownloadListSort.ordered(source, 'oldest');
