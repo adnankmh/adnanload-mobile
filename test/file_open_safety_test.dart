@@ -57,4 +57,28 @@ void main() {
         '/downloads/$name', displayName: name), isFalse, reason: name);
     }
   });
+
+  test('auto-open rejects an installer hidden behind a harmless display name', () {
+    expect(FileOpenSafety.mayAutoOpen(
+      '/downloads/payload.apk', displayName: 'photo.jpg'), isFalse);
+    expect(FileOpenSafety.mayAutoOpen(
+      '/downloads/photo.jpg', displayName: 'payload.apk'), isFalse);
+    expect(FileOpenSafety.mayAutoOpen(
+      '/downloads/payload.apk?token=abc', displayName: 'photo.jpg'), isFalse);
+  });
+
+  test('auto-open rejects application packages outside Android APK formats', () {
+    for (final name in ['bundle.deb', 'installer.rpm', 'app.dmg']) {
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/$name', displayName: 'safe.pdf'), isFalse, reason: name);
+    }
+  });
+
+  test('auto-open preserves safe files and refuses missing paths', () {
+    expect(FileOpenSafety.mayAutoOpen(
+      '/downloads/report.pdf', displayName: 'report.pdf'), isTrue);
+    expect(FileOpenSafety.mayAutoOpen(
+      '/downloads/movie.mp4', displayName: 'movie.mp4'), isTrue);
+    expect(FileOpenSafety.mayAutoOpen('', displayName: 'report.pdf'), isFalse);
+  });
 }

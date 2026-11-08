@@ -16,6 +16,7 @@ import '../core/language_preference.dart';
 import '../core/media_failure.dart';
 import '../core/media_output.dart';
 import '../core/smart_link.dart';
+import '../core/file_open_safety.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../core/transfer_policy.dart';
@@ -159,7 +160,7 @@ class DownloadRepository extends ChangeNotifier {
   /// Opening is opt-in and only for safe files while the app is foregrounded.
   void _maybeOpenCompleted(DownloadEntry item) {
     if (!autoOpenSafeFiles || !_appVisible || item.isPlaylist || item.path.isEmpty) return;
-    if (SmartLink.category(item.name) == 'application') return;
+    if (!FileOpenSafety.mayAutoOpen(item.path, displayName: item.name)) return;
     unawaited(OpenFilex.open(item.path).then((_) {}).catchError((Object _) {}));
   }
 

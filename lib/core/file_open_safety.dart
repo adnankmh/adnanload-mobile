@@ -1,3 +1,5 @@
+import 'smart_link.dart';
+
 /// Safety gate for handing downloaded files to external applications.
 ///
 /// The stored display name can differ from the on-disk name after renaming,
@@ -15,6 +17,20 @@ class FileOpenSafety {
   static final RegExp _hiddenFormatting = RegExp(
     r'[\u00AD\u061C\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]',
   );
+
+  /// Only auto-open a confirmed non-installer. Check the physical path as
+  /// well as the display name: the two can diverge after native renaming.
+  /// This does not replace the foreground and explicit opt-in checks.
+  static bool mayAutoOpen(String path, {required String displayName}) {
+    if (path.trim().isEmpty ||
+        requiresConfirmation(path, displayName: displayName)) {
+      return false;
+    }
+    // SmartLink additionally recognizes .deb/.rpm/.dmg and URL-style
+    // query/fragment suffixes, which may disguise application packages.
+    return SmartLink.category(path) != 'application' &&
+        SmartLink.category(displayName) != 'application';
+  }
 
   static bool requiresConfirmation(String path, {String? displayName}) {
     return _risky(path) || (displayName != null && _risky(displayName));
