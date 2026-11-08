@@ -33,6 +33,35 @@ void main() {
         'https://example.org/a.zip\r\n');
   });
 
+  test('copies streamed chunks when a SAF producer reuses its buffer', () async {
+    Stream<List<int>> reusedChunks() async* {
+      final shared = utf8.encode('https://example.org/a.zip\n');
+      yield shared;
+      // A producer is allowed to refill the same mutable buffer for
+      // subsequent events; previously accepted bytes must not change.
+      shared.setAll(0, utf8.encode('https://example.org/b.zip\n'));
+      yield shared;
+    }
+
+    final text = await BatchTextImport.decodeStream(reusedChunks());
+    expect(text,
+        'https://example.org/a.zip\nhttps://example.org/b.zip\n');
+    expect(BatchLinks.parse(text), [
+      'https://example.org/a.zip',
+      'https://example.org/b.zip',
+    ]);
+  });
+
+  test('accepts exactly the 1 MiB streaming limit', () async {
+    final chunks = Stream<List<int>>.fromIterable([
+      List<int>.filled(BatchTextImport.maxBytes - 2, 0x61),
+      [0x62, 0x63],
+    ]);
+    final text = await BatchTextImport.decodeStream(chunks);
+    expect(text.length, BatchTextImport.maxBytes);
+    expect(text.endsWith('bc'), isTrue);
+  });
+
   test('rejects an oversized stream even if length was not reported', () async {
     final chunks = Stream<List<int>>.fromIterable([
       List<int>.filled(BatchTextImport.maxBytes, 0x61),
