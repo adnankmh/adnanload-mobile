@@ -152,7 +152,10 @@ class TransferPolicy {
   }
 
   static bool networkTransient(String failure) {
-    final text = failure.toLowerCase();
+    // URLs are diagnostic context, not error messages. Their paths or signed
+    // queries can contain words such as 'timeout', 'drm' or 'login required';
+    // those must neither invent a retry nor suppress a real socket retry.
+    final text = failure.replaceAll(_urlInFailure, ' ').toLowerCase();
     // Extractors commonly report "HTTP Error 429", while native clients can
     // report "status code: 503". Plain substring matching missed both forms.
     // Recognize HTTP/1.1, HTTP/2 and HTTP/3 status lines as well as
@@ -199,10 +202,12 @@ class TransferPolicy {
     if (!rateLimited) return fallback;
     // Extractors and HTTP clients may report multiple Retry-After lines.
     // Using only the first can retry before a later, longer server deadline.
+    // A URL query such as ?retry-after:3600 is not a server header. Ignore
+    // URL text while retaining real multiline and inline Retry-After hints.
     final headers = RegExp(
       r'\bretry-after[ \t]*:[ \t]*([^\r\n]*)',
       caseSensitive: false,
-    ).allMatches(failure).toList();
+    ).allMatches(failure.replaceAll(_urlInFailure, ' ')).toList();
     if (headers.isEmpty) return fallback;
     // Malformed or excessive header sets require an explicit manual retry.
     if (headers.length > 16) return null;
