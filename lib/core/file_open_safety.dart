@@ -33,7 +33,13 @@ class FileOpenSafety {
   }
 
   static bool requiresConfirmation(String path, {String? displayName}) {
-    return _risky(path) || (displayName != null && _risky(displayName));
+    // Keep manual-open warnings consistent with the automatic-open guard.
+    // SmartLink recognizes additional installer formats (deb/rpm/dmg) and
+    // URL-style query/fragment suffixes; _risky still handles invisible
+    // formatting characters and trailing dots/spaces in physical filenames.
+    bool installer(String value) =>
+        _risky(value) || SmartLink.category(value) == 'application';
+    return installer(path) || (displayName != null && installer(displayName));
   }
 
   static bool _risky(String value) {
