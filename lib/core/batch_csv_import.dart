@@ -1,4 +1,4 @@
-/// Extracts the URL column from an RFC 4180-style UTF-8 CSV link list.
+/// Extracts the URL column from a UTF-8 CSV or tab-separated link list.
 ///
 /// Input decoding and the 1 MiB file limit are handled by BatchTextImport.
 /// All extracted links still pass through BatchLinks / UrlGuard before use.
@@ -118,14 +118,14 @@ class BatchCsvImport {
     return urls.join('\n');
   }
 
-  /// Excel and regional exports often use semicolons instead of commas.
-  /// Only select that dialect when the first record supplies a recognizable
-  /// URL heading or a URL in a later column. A single signed URL containing
-  /// semicolons must remain intact rather than being mistaken for a CSV row.
+  /// Excel and regional exports may use semicolons or tabs instead of commas.
+  /// Select an alternate dialect only for a recognizable URL heading or a
+  /// URL in a later column. Signed URLs must not be split on punctuation.
   static String _detectDelimiter(String csv) {
     var quoted = false;
     var commas = 0;
     var semicolons = 0;
+    var tabs = 0;
     final firstRecord = StringBuffer();
     for (var i = 0; i < csv.length; i++) {
       final char = csv[i];
@@ -142,9 +142,10 @@ class BatchCsvImport {
       if (!quoted) {
         if (char == ',') commas++;
         if (char == ';') semicolons++;
+        if (char == '\t') tabs++;
       }
     }
-    if (semicolons == 0) return ',';
+    if (semicolons == 0 && tabs == 0) return ',';
 
     const headings = <String>{
       'downloadurl', 'downloadlink', 'fileurl', 'filelink',
@@ -164,9 +165,22 @@ class BatchCsvImport {
     // "Title, description;Download URL") is not evidence of comma CSV.
     // Prefer an unambiguous recognized heading over punctuation counts.
     // When both dialects appear plausible, retain the legacy comma default.
-    final semicolonHeader = hasHeader(';');
+    final semicolonHeader = semicolons > 0 && hasHeader(';');
     final commaHeader = commas > 0 && hasHeader(',');
+    final tabHeader = tabs > 0 && hasHeader('\t');
+    // A tab-separated header can include commas/semicolons in a description.
+    // Recognized comma/semicolon headers retain their existing precedence.
+    if (tabHeader && !commaHeader && !semicolonHeader) return '\t';
     if (semicolonHeader && !commaHeader) return ';';
+    if (commaHeader) return ',';
+    if (tabHeader) return '\t';
+
+    // Headerless TSV: the HTTP(S) URL can be the first or a later column.
+    // Only unquoted tabs count as delimiters; preserve signed URL punctuation.
+    if (tabs > 0 && firstRecord.toString().split('\t').any(
+        (cell) => _looksLikeHttpUrl(cell.trim().replaceAll('"', '')))) {
+      return '\t';
+    }
     if (commas > 0) return ',';
     if (semicolonHeader) return ';';
 
