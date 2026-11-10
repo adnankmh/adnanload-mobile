@@ -52,4 +52,30 @@ void main() {
     const url = 'https://example.org/archive.zip?token=(abc),;';
     expect(BatchLinks.parse(url), [url]);
   });
+
+  test('angle-wrapped Markdown destinations preserve parentheses and signatures', () {
+    const url = 'https://example.org/file(1).zip?token=a,b;c';
+    expect(BatchLinks.parse('[download](<$url>)'), [url]);
+  });
+
+  test('angle-wrapped Markdown destinations still reject private hosts', () {
+    expect(
+      BatchLinks.parse(
+        '[private](<http://127.0.0.1/secret>) '
+        '[safe](<https://example.org/public.zip>)',
+      ),
+      ['https://example.org/public.zip'],
+    );
+  });
+
+  test('Markdown batch imports retain the 100-link queue limit', () {
+    final input = List.generate(
+      105,
+      (index) => '[file $index](https://example.org/file$index.zip)',
+    ).join('\n');
+    final links = BatchLinks.parse(input);
+    expect(links.length, BatchLinks.maxLinks);
+    expect(links.first, 'https://example.org/file0.zip');
+    expect(links.last, 'https://example.org/file99.zip');
+  });
 }

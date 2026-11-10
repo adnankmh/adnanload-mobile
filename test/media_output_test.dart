@@ -39,4 +39,92 @@ void main() {
     expect(await MediaOutput.singleFile(root, 'video', a.path), a.path);
     expect(MediaOutput.basename('عنوان %(id)s.mp4'), 'عنوان _(id)s');
   });
+
+
+  test('missing output folders and vanished media files are not completions', () async {
+    final missing = Directory('${root.path}/removed-job');
+    expect(await MediaOutput.singleFile(missing, 'video', null), isNull);
+    expect(await MediaOutput.singleFile(
+      missing, 'video', '${missing.path}/video.mp4',
+    ), isNull);
+    expect(await MediaOutput.hasPlaylistMedia(missing), isFalse);
+
+    final removed = await File('${root.path}/vanished.mp4')
+        .writeAsBytes([1, 2, 3]);
+    await removed.delete();
+    expect(await MediaOutput.isFinishedFile(removed), isFalse);
+  });
+
+  test('I/O failures during media scans fail closed without selecting files', () async {
+    final existing = await File('${root.path}/video.mp4')
+        .writeAsBytes([1]);
+    expect(await MediaOutput.isFinishedFile(
+      _VanishingFile(existing.path),
+    ), isFalse);
+    expect(await MediaOutput.singleFile(
+      _UnavailableDirectory(root.path), 'video', null,
+    ), isNull);
+    expect(await MediaOutput.hasPlaylistMedia(
+      _UnavailableDirectory(root.path),
+    ), isFalse);
+  });
+
+  test('denied directory stat fails closed while healthy output still works', () async {
+    expect(await MediaOutput.hasPlaylistMedia(
+      _PermissionDeniedDirectory(root.path),
+    ), isFalse);
+
+    final valid = await File('${root.path}/video.m4a')
+        .writeAsBytes([1, 2, 3]);
+    expect(await MediaOutput.isFinishedFile(valid), isTrue);
+    expect(await MediaOutput.singleFile(root, 'video', valid.path), valid.path);
+  });
+
+}
+
+class _VanishingFile implements File {
+  _VanishingFile(this.path);
+
+  @override
+  final String path;
+
+  @override
+  Future<int> length() async =>
+      throw const FileSystemException('File removed during stat');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _UnavailableDirectory implements Directory {
+  _UnavailableDirectory(this.path);
+
+  @override
+  final String path;
+
+  @override
+  Future<bool> exists() async => true;
+
+  @override
+  Stream<FileSystemEntity> list({
+    bool recursive = false,
+    bool followLinks = true,
+  }) => Stream.error(const FileSystemException('Storage unavailable'));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PermissionDeniedDirectory implements Directory {
+  _PermissionDeniedDirectory(this.path);
+
+  @override
+  final String path;
+
+  @override
+  Future<bool> exists() async =>
+      throw const FileSystemException('Storage permission revoked');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

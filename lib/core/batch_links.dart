@@ -18,11 +18,21 @@ class BatchLinks {
     // splitting on whitespace. Keep query bytes (including signed commas and
     // semicolons) unchanged; UrlGuard still rejects unsafe destinations.
     // Bare URLs with literal parentheses are not modified by this pattern.
+    // CommonMark also allows angle-wrapped destinations. Their brackets
+    // disambiguate literal parentheses in file paths and signed queries.
+    // Validate the extracted URL through the same UrlGuard as plain links.
+    final angleMarkdownLinks = RegExp(
+      r'!?\[[^\]\r\n]*\]\(<(https?://[^\s<>]+)>\)',
+      caseSensitive: false,
+    );
+    final angleExpanded = text.replaceAllMapped(
+      angleMarkdownLinks, (match) => ' ${match.group(1)} ',
+    );
     final markdownLinks = RegExp(
       r'!?\[[^\]\r\n]*\]\((https?://[^\s()]+)\)',
       caseSensitive: false,
     );
-    final expanded = text.replaceAllMapped(
+    final expanded = angleExpanded.replaceAllMapped(
       markdownLinks, (match) => ' ${match.group(1)} ',
     );
     for (final token in expanded.split(RegExp(r'[\s]+'))) {
