@@ -13,9 +13,14 @@ class BackupService {
   /// In particular, native paths and error messages may contain private
   /// filesystem locations or temporary access details. Import already resets
   /// these fields; do not write them into the exported JSON in the first place.
+  /// Native task IDs and transient progress are not portable either.
   /// Keep the original URL and expected checksum so the user can restore jobs.
   static Map<String, dynamic> _exportEntry(DownloadEntry entry) => {
     ...entry.toJson(),
+    'id': '',
+    'status': 'waiting',
+    'progress': 0.0,
+    'speed': 0.0,
     'path': '',
     'error': '',
     'actualSha256': '',

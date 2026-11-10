@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
+import '../core/download_list_filter.dart';
+import '../core/download_list_sort.dart';
 import '../services/download_repository.dart';
 import '../widgets/premium_download_card.dart';
 
@@ -17,22 +19,17 @@ class DownloadsPage extends StatefulWidget {
 class _DownloadsPageState extends State<DownloadsPage> {
   String filter = 'all';
   String search = '';
+  String sortMode = 'newest';
 
   @override
   Widget build(BuildContext context) {
     final t = widget.strings.t;
     final scheme = Theme.of(context).colorScheme;
-    final entries = widget.repo.items.where((item) {
-      final matching = switch (filter) {
-        'active' => {'running', 'waiting', 'paused'}.contains(item.status),
-        'finished' => item.status == 'complete',
-        'failed' => {'error', 'canceled'}.contains(item.status),
-        _ => true,
-      };
-      final query = search.trim().toLowerCase();
-      return matching && (item.name.toLowerCase().contains(query) ||
-          item.url.toLowerCase().contains(query));
-    }).toList();
+    final entries = DownloadListSort.ordered(
+      widget.repo.items.where((item) =>
+          DownloadListFilter.matches(item, filter: filter, query: search)),
+      sortMode,
+    );
     final metrics = widget.repo.metrics;
     final active = metrics.running;
     final completed = metrics.completed;
@@ -59,7 +56,27 @@ class _DownloadsPageState extends State<DownloadsPage> {
       Padding(padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 9),
         child: TextField(onChanged: (text) => setState(() => search = text),
           decoration: InputDecoration(hintText: t('search'),
-            prefixIcon: const Icon(Icons.search_rounded)))),
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: PopupMenuButton<String>(
+              tooltip: widget.strings.locale == 'ar'
+                  ? 'ترتيب التنزيلات' : 'Sort downloads',
+              icon: const Icon(Icons.sort_rounded),
+              onSelected: (value) => setState(() => sortMode = value),
+              itemBuilder: (context) => [
+                for (final mode in DownloadListSort.modes)
+                  PopupMenuItem<String>(
+                    value: mode,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (sortMode == mode) ...[
+                        const Icon(Icons.check_rounded, size: 18),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(DownloadListSort.label(mode,
+                          arabic: widget.strings.locale == 'ar')),
+                    ]),
+                  ),
+              ],
+            )))),
       SizedBox(height: 51, child: ListView(scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 17), children: [
           for (final key in ['all', 'active', 'finished', 'failed'])

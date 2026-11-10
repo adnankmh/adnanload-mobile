@@ -23,6 +23,8 @@ void main() {
     retryAttempts: 2,
     retryAt: 30000,
     priority: 7,
+    progress: 0.62,
+    speed: 2048.0,
   );
 
   Map<String, dynamic> export(DownloadEntry entry) => BackupService.create(
@@ -40,8 +42,13 @@ void main() {
     expect(serialized, isNot(contains('private-device-path')));
     expect(serialized, isNot(contains('private-error-marker')));
     expect(serialized, isNot(contains('private-actual-hash-marker')));
+    expect(serialized, isNot(contains('native-task-123')));
 
     final record = (backup['history'] as List).single as Map<String, dynamic>;
+    expect(record['id'], '');
+    expect(record['status'], 'waiting');
+    expect(record['progress'], 0.0);
+    expect(record['speed'], 0.0);
     expect(record['path'], '');
     expect(record['error'], '');
     expect(record['actualSha256'], '');
@@ -64,6 +71,10 @@ void main() {
   test('export does not mutate the running task in local history', () {
     final entry = activeEntry();
     export(entry);
+    expect(entry.id, 'native-task-123');
+    expect(entry.status, 'running');
+    expect(entry.progress, 0.62);
+    expect(entry.speed, 2048.0);
     expect(entry.path, '/data/user/0/private-device-path/archive.zip');
     expect(entry.error, contains('private-error-marker'));
     expect(entry.actualSha256, 'private-actual-hash-marker');
@@ -72,6 +83,25 @@ void main() {
     expect(entry.scheduledExternally, isTrue);
     expect(entry.scheduledAt, 20000);
     expect(entry.retryAt, 30000);
+  });
+
+  test('completed jobs also export as inert, portable history', () {
+    final completed = DownloadEntry.fromJson({
+      ...activeEntry().toJson(),
+      'id': 'native-completed-secret',
+      'status': 'completed',
+      'progress': 1.0,
+      'speed': 4096.0,
+    });
+    final record = (export(completed)['history'] as List).single
+        as Map<String, dynamic>;
+    expect(record['id'], '');
+    expect(record['status'], 'waiting');
+    expect(record['progress'], 0.0);
+    expect(record['speed'], 0.0);
+    expect(completed.id, 'native-completed-secret');
+    expect(completed.status, 'completed');
+    expect(completed.progress, 1.0);
   });
 
   test('sanitized backups restore without restarting native work', () {

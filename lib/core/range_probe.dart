@@ -24,6 +24,7 @@ class RangeProbe {
     required int contentLength,
     String? contentEncoding,
     String? contentType,
+    String? vary,
   }) {
     if (statusCode != HttpStatus.partialContent || contentLength != 1) {
       return false;
@@ -34,6 +35,11 @@ class RangeProbe {
     if (contentType != null &&
         contentType.split(';').first.trim().toLowerCase() ==
             'multipart/byteranges') return false;
+    // Vary means the representation may depend on request headers. The
+    // native downloader cannot guarantee it repeats every probe header, so
+    // even a strong ETag cannot prove all segments describe the same bytes.
+    // Fail closed to the existing single-stream path for any Vary field.
+    if (vary != null && vary.trim().isNotEmpty) return false;
     final encoding = contentEncoding?.trim().toLowerCase();
     if (encoding != null && encoding.isNotEmpty && encoding != 'identity') {
       return false;
@@ -47,18 +53,19 @@ class RangeProbe {
   /// Read exactly one byte before enabling segmented downloads; malformed,
   /// truncated or stalled responses must use the single-stream fallback.
   static Future<bool> verifyProbeResponse(HttpClientResponse response) async {
-    if (!supportsParallelResponse(
-      statusCode: response.statusCode,
-      acceptRanges: response.headers.value('accept-ranges'),
-      etag: response.headers.value('etag'),
-      contentRange: response.headers.value('content-range'),
-      contentLength: response.contentLength,
-      contentEncoding: response.headers.value('content-encoding'),
-      contentType: response.headers.value('content-type'),
-    )) {
-      return false;
-    }
     try {
+      if (!supportsParallelResponse(
+        statusCode: response.statusCode,
+        acceptRanges: response.headers.value('accept-ranges'),
+        etag: response.headers.value('etag'),
+        contentRange: response.headers.value('content-range'),
+        contentLength: response.contentLength,
+        contentEncoding: response.headers.value('content-encoding'),
+        contentType: response.headers.value('content-type'),
+        vary: response.headers['vary']?.join(','),
+      )) {
+        return false;
+      }
       final count = await response.fold<int>(0, (count, bytes) {
         final next = count + bytes.length;
         if (next > 1) {
