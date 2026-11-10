@@ -4,6 +4,15 @@ import '../models/download_entry.dart';
 /// lifecycle. A transfer remains active while it is being submitted or
 /// its completed bytes are being verified.
 class DownloadListFilter {
+  /// Fold common Arabic spelling/diacritic variants for *filename* search.
+  /// Do not normalize the URL: its query may contain case-sensitive tokens
+  /// or percent-encoded signatures that must retain literal search behavior.
+  static String _foldArabicSearch(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]'), '')
+      .replaceAll(RegExp(r'[أإآٱ]'), 'ا')
+      .replaceAll('ى', 'ي');
+
   static bool matches(DownloadEntry item,
       {required String filter, required String query}) {
     final matchingStatus = switch (filter) {
@@ -17,8 +26,10 @@ class DownloadListFilter {
     if (!matchingStatus) return false;
 
     final needle = query.trim().toLowerCase();
-    return needle.isEmpty ||
-        item.name.toLowerCase().contains(needle) ||
+    if (needle.isEmpty) return true;
+    final foldedNeedle = _foldArabicSearch(needle);
+    return (foldedNeedle.isNotEmpty &&
+            _foldArabicSearch(item.name).contains(foldedNeedle)) ||
         item.url.toLowerCase().contains(needle);
   }
 }
