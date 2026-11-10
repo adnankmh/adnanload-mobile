@@ -25,4 +25,13 @@ void main() {
   expect(SmartLink.category('audio.m4a'),'audio');
   expect(SmartLink.category('movie.mp4'),'video');
  });
+ test('empty or ambiguous YouTube list IDs do not enter playlist mode', () {
+  expect(SmartLink.kind('https://youtube.com/playlist?list='), 'video');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=%20'), 'video');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=one&list=two'), 'video');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=PLvalid'), 'playlist');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=PL%0Ainvalid'), 'video');
+  expect(SmartLink.kind('https://youtube.com/playlist?list=PL_valid-01'), 'playlist');
+ });
+
 }
