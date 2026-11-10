@@ -12,9 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../core/url_guard.dart';
+import '../core/language_preference.dart';
 import '../core/media_failure.dart';
 import '../core/media_output.dart';
 import '../core/smart_link.dart';
+import '../core/file_open_safety.dart';
 import '../core/playlist_rules.dart';
 import '../core/playlist_selection.dart';
 import '../core/transfer_policy.dart';
@@ -87,7 +89,7 @@ class DownloadRepository extends ChangeNotifier {
     crashCount = await CrashJournal.crashCount();
     theme = _prefs!.getString('theme') ?? 'dark';
     if (!const {'dark', 'light', 'gold'}.contains(theme)) theme = 'dark';
-    language = _prefs!.getString('language') ?? 'ar';
+    language = LanguagePreference.normalize(_prefs!.get('language'));
     wifiOnly = _prefs!.getBool('wifiOnly') ?? false;
     chargingOnly = _prefs!.getBool('chargingOnly') ?? false;
     batteryFloor = _prefs!.getInt('batteryFloor') ?? 0;
@@ -158,7 +160,7 @@ class DownloadRepository extends ChangeNotifier {
   /// Opening is opt-in and only for safe files while the app is foregrounded.
   void _maybeOpenCompleted(DownloadEntry item) {
     if (!autoOpenSafeFiles || !_appVisible || item.isPlaylist || item.path.isEmpty) return;
-    if (SmartLink.category(item.name) == 'application') return;
+    if (!FileOpenSafety.mayAutoOpen(item.path, displayName: item.name)) return;
     unawaited(OpenFilex.open(item.path).then((_) {}).catchError((Object _) {}));
   }
 
@@ -560,7 +562,7 @@ class DownloadRepository extends ChangeNotifier {
       final newTheme = prefs['theme']?.toString();
       final newLang = prefs['language']?.toString();
       updateSettings(newTheme: const {'dark','light','gold'}.contains(newTheme) ? newTheme : null,
-        newLanguage: const {'ar','en'}.contains(newLang) ? newLang : null,
+        newLanguage: LanguagePreference.isSupported(newLang) ? newLang : null,
         newWifiOnly: prefs['wifiOnly'] is bool ? prefs['wifiOnly'] as bool : null);
     }
     _persistSoon(); notifyListeners();
@@ -861,7 +863,7 @@ class DownloadRepository extends ChangeNotifier {
       storageLimitMb = newStorageLimitMb.clamp(0,102400).toInt();
     }
     if (newTheme != null && const {'dark','light','gold'}.contains(newTheme)) theme = newTheme;
-    if (newLanguage != null) language = newLanguage;
+    if (LanguagePreference.isSupported(newLanguage)) language = newLanguage!;
     if (newWifiOnly != null) wifiOnly = newWifiOnly;
     if (newChargingOnly != null) chargingOnly = newChargingOnly;
     if (newNotifications != null) notifications = newNotifications;
@@ -893,7 +895,7 @@ class DownloadRepository extends ChangeNotifier {
       _notificationsAsked = false;
       _configureNotifications();
     }
-    if (newLanguage != null) _configureNotifications();
+    if (LanguagePreference.isSupported(newLanguage)) _configureNotifications();
     if (newAutoUpdateMediaEngine == true && _initializedMedia) unawaited(_checkMediaUpdateIfDue());
     notifyListeners();
   }

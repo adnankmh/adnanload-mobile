@@ -68,4 +68,29 @@ void main() {
     await expectLater(QuickCapture.disableBubble(), throwsA(isA<PlatformException>()));
     expect(QuickCapture.visible.value, isTrue);
   });
+
+  test('null native disable acknowledgement retains confirmed visible state',
+      () async {
+    QuickCapture.visible.value = true;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'disableBubble');
+      return null;
+    });
+
+    await expectLater(QuickCapture.disableBubble(), throwsStateError);
+    expect(QuickCapture.visible.value, isTrue);
+  });
+
+  test('native enable permission exception leaves switch off', () async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'enableBubble');
+      throw PlatformException(code: 'OVERLAY_PERMISSION');
+    });
+
+    await expectLater(
+      QuickCapture.enableBubble(),
+      throwsA(isA<PlatformException>()),
+    );
+    expect(QuickCapture.visible.value, isFalse);
+  });
 }

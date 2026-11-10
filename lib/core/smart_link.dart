@@ -24,14 +24,29 @@ class SmartLink {
     return detected == 'playlist' ? 'video' : detected;
   }
 
+  /// Classify both URL-style names (with query/fragment) and literal names.
+  ///
+  /// Application packages take precedence in either interpretation. This is
+  /// deliberately conservative because callers use this category to suppress
+  /// automatic opening of downloaded installers.
   static String category(String filename) {
-    final n = filename.toLowerCase().split('?').first;
-    if (RegExp(r'\.(mp4|mkv|mov|avi|webm|m4v)$').hasMatch(n)) return 'video';
-    if (RegExp(r'\.(mp3|m4a|wav|flac|ogg|opus|aac)$').hasMatch(n)) return 'audio';
-    if (RegExp(r'\.(pdf|txt|docx?|xlsx?|pptx?|csv|epub|rtf)$').hasMatch(n)) return 'document';
-    if (RegExp(r'\.(apk|exe|msi|deb|rpm|dmg)$').hasMatch(n)) return 'application';
-    if (RegExp(r'\.(zip|7z|rar|tar|gz)$').hasMatch(n)) return 'archive';
-    if (RegExp(r'\.(jpe?g|png|gif|webp|bmp|svg)$').hasMatch(n)) return 'image';
+    final full = filename.toLowerCase();
+    final withoutUrlSuffix = full.split(RegExp(r'[?#]')).first;
+    final baseCategory = _categoryByExtension(withoutUrlSuffix);
+    final literalCategory = _categoryByExtension(full);
+    if (baseCategory == 'application' || literalCategory == 'application') {
+      return 'application';
+    }
+    return baseCategory == 'file' ? literalCategory : baseCategory;
+  }
+
+  static String _categoryByExtension(String name) {
+    if (RegExp(r'\.(mp4|mkv|mov|avi|webm|m4v)$').hasMatch(name)) return 'video';
+    if (RegExp(r'\.(mp3|m4a|wav|flac|ogg|opus|aac)$').hasMatch(name)) return 'audio';
+    if (RegExp(r'\.(pdf|txt|docx?|xlsx?|pptx?|csv|epub|rtf)$').hasMatch(name)) return 'document';
+    if (RegExp(r'\.(apk|apks|xapk|aab|exe|msi|deb|rpm|dmg)$').hasMatch(name)) return 'application';
+    if (RegExp(r'\.(zip|7z|rar|tar|gz)$').hasMatch(name)) return 'archive';
+    if (RegExp(r'\.(jpe?g|png|gif|webp|bmp|svg)$').hasMatch(name)) return 'image';
     return 'file';
   }
 }
