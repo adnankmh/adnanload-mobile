@@ -175,9 +175,9 @@ class BatchCsvImport {
     if (commaHeader) return ',';
     if (tabHeader) return '\t';
 
-    // Headerless TSV: a later tab column must contain an actual HTTP(S) URL.
-    // Tabs inside quoted text do not count as separators above.
-    if (tabs > 0 && firstRecord.toString().split('\t').skip(1).any(
+    // Headerless TSV: the HTTP(S) URL can be the first or a later column.
+    // Only unquoted tabs count as delimiters; preserve signed URL punctuation.
+    if (tabs > 0 && firstRecord.toString().split('\t').any(
         (cell) => _looksLikeHttpUrl(cell.trim().replaceAll('"', '')))) {
       return '\t';
     }

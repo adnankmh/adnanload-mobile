@@ -32,6 +32,23 @@ void main() {
     ]);
   });
 
+  test('headerless URL-first TSV retains each download URL', () {
+    const input = 'https://example.org/one.zip\tFirst\n'
+        'https://example.org/two.pdf\tSecond\n';
+    expect(links(input), [
+      'https://example.org/one.zip',
+      'https://example.org/two.pdf',
+    ]);
+  });
+
+  test('URL-first TSV preserves signed comma and semicolon parameters', () {
+    const input = 'https://cdn.example.org/file.zip?sig=a,b;c\t'
+        '"Report, November"\n';
+    expect(links(input), [
+      'https://cdn.example.org/file.zip?sig=a,b;c',
+    ]);
+  });
+
   test('tabs and punctuation in descriptive TSV heading do not change dialect', () {
     const input = 'Title, description; notes\tDownload Link\tSource URL\n'
         'Report\thttps://cdn.example.org/a.zip\thttps://example.org/page\n';
