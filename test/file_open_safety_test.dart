@@ -67,6 +67,49 @@ void main() {
       '/downloads/payload.apk?token=abc', displayName: 'photo.jpg'), isFalse);
   });
 
+  test('manual open confirms all installer formats blocked by auto-open', () {
+    for (final name in ['package.deb', 'package.rpm', 'installer.dmg']) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: 'safe.pdf'), isTrue,
+        reason: 'physical path: $name');
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/safe.pdf', displayName: name), isTrue,
+        reason: 'display name: $name');
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/$name', displayName: 'safe.pdf'), isFalse,
+        reason: name);
+    }
+  });
+
+  test('manual open cannot hide installers behind URL-style suffixes', () {
+    for (final name in [
+      'setup.apk?token=private',
+      'installer.exe#notes',
+      'bundle.aab?download=1#info',
+      'release#2026.apk',
+      'release?build.dmg',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: 'safe.pdf'), isTrue,
+        reason: 'physical path: $name');
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/safe.pdf', displayName: name), isTrue,
+        reason: 'display name: $name');
+    }
+  });
+
+  test('manual open keeps harmless query and fragment names unprompted', () {
+    for (final name in [
+      'report.pdf?token=private',
+      'archive.zip#part2',
+      'photo.jpg?version=2026',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: name), isFalse,
+        reason: name);
+    }
+  });
+
   test('auto-open rejects application packages outside Android APK formats', () {
     for (final name in ['bundle.deb', 'installer.rpm', 'app.dmg']) {
       expect(FileOpenSafety.mayAutoOpen(
