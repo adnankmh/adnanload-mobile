@@ -38,7 +38,13 @@ class BatchLinkPreview {
       r'\.(?:s?html?|xhtml|php\d*|aspx?|ashx|jspx?|cfm|cgi|do|action)$',
       caseSensitive: false,
     ).hasMatch(last);
-    final hasEncodedSeparator = last.contains('/') || last.contains('\\');
+    // One decoding pass may leave a percent-encoded separator behind (for
+    // example %252F becomes %2F). Some servers decode again before naming
+    // the file, so do not present a potentially misleading local filename.
+    // Also cover further %25 layers without decoding or altering signed URLs.
+    final hasEncodedSeparator = last.contains('/') ||
+        last.contains('\\') ||
+        RegExp(r'%(?:25)*(?:2f|5c)', caseSensitive: false).hasMatch(last);
     final fileLike = kind == 'direct' &&
         !pageLike &&
         !hasEncodedSeparator &&
