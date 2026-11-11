@@ -21,7 +21,7 @@ void main() {
     const url = 'https://example.org/cover(1).png';
     expect(
       BatchLinks.parse(
-        '![cover image]($url#preview)\\n$url',
+        '![cover image]($url#preview)\n$url',
       ),
       [url],
     );
@@ -42,7 +42,7 @@ void main() {
     final text = List.generate(
       103,
       (index) => '[file $index](https://example.org/file($index).zip)',
-    ).join('\\n');
+    ).join('\n');
     final result = BatchLinks.parse(text);
     expect(result.length, BatchLinks.maxLinks);
     expect(result.first, 'https://example.org/file(0).zip');
