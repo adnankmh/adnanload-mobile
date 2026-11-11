@@ -156,7 +156,7 @@ void main() {
         reason: name);
     }
     expect(FileOpenSafety.requiresConfirmation(
-      '/downloads/install.m\\u200Bsix'), isTrue);
+      '/downloads/install.m\u200Bsix'), isTrue);
     expect(FileOpenSafety.requiresConfirmation(
       '/downloads/launcher.desktop...  '), isTrue);
   });
