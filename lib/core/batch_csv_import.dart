@@ -156,7 +156,7 @@ class BatchCsvImport {
       final comma = firstLine.indexOf(',');
       if (query >= 0 && comma > query &&
           !firstLine.contains('"') && _looksLikeHttpUrl(firstLine)) {
-        return '\\u0000'; // Sentinel absent from validated public URLs.
+        return '\u0000'; // Sentinel absent from validated public URLs.
       }
     }
     if (semicolons == 0 && tabs == 0) return ',';
