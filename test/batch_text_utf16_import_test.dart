@@ -79,9 +79,12 @@ void main() {
   });
 
   test('UTF-16 streams still enforce the 1 MiB limit', () async {
+    final oversized = List<int>.filled(BatchTextImport.maxBytes + 1, 0);
+    oversized[0] = 0xFF;
+    oversized[1] = 0xFE;
     final chunks = Stream<List<int>>.fromIterable([
-      utf16WithBom('a' * (BatchTextImport.maxBytes ~/ 2),
-          littleEndian: true),
+      oversized.sublist(0, 2),
+      oversized.sublist(2),
     ]);
     await expectLater(BatchTextImport.decodeStream(chunks),
         throwsFormatException);
