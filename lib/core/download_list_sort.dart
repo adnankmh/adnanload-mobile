@@ -28,40 +28,40 @@ class DownloadListSort {
   }
 
 
-  /// Compare ASCII digit runs by their numeric value without parsing integers.
-  /// This handles very long episode/part numbers and ignores leading zeros;
-  /// equal numeric names still use the existing date/id tie-breaker.
+  /// Compare ASCII and Arabic-script decimal digit runs by numeric value
+  /// without parsing integers. Very long episode numbers and mixed numeral
+  /// scripts remain safe; equal values use the existing date/id tie-breaker.
   static int _compareNaturalName(String left, String right) {
     final a = left.toLowerCase();
     final b = right.toLowerCase();
     var i = 0;
     var j = 0;
     while (i < a.length && j < b.length) {
-      final aDigit = _isAsciiDigit(a.codeUnitAt(i));
-      final bDigit = _isAsciiDigit(b.codeUnitAt(j));
-      if (aDigit && bDigit) {
+      final aDigit = _digitValue(a.codeUnitAt(i));
+      final bDigit = _digitValue(b.codeUnitAt(j));
+      if (aDigit != null && bDigit != null) {
         var aEnd = i;
         var bEnd = j;
-        while (aEnd < a.length && _isAsciiDigit(a.codeUnitAt(aEnd))) {
+        while (aEnd < a.length && _digitValue(a.codeUnitAt(aEnd)) != null) {
           aEnd++;
         }
-        while (bEnd < b.length && _isAsciiDigit(b.codeUnitAt(bEnd))) {
+        while (bEnd < b.length && _digitValue(b.codeUnitAt(bEnd)) != null) {
           bEnd++;
         }
         var aStart = i;
         var bStart = j;
-        while (aStart < aEnd && a.codeUnitAt(aStart) == 48) {
+        while (aStart < aEnd && _digitValue(a.codeUnitAt(aStart)) == 0) {
           aStart++;
         }
-        while (bStart < bEnd && b.codeUnitAt(bStart) == 48) {
+        while (bStart < bEnd && _digitValue(b.codeUnitAt(bStart)) == 0) {
           bStart++;
         }
         final aDigits = aEnd - aStart;
         final bDigits = bEnd - bStart;
         if (aDigits != bDigits) return aDigits.compareTo(bDigits);
         for (var k = 0; k < aDigits; k++) {
-          final difference = a.codeUnitAt(aStart + k)
-              .compareTo(b.codeUnitAt(bStart + k));
+          final difference = _digitValue(a.codeUnitAt(aStart + k))!
+              .compareTo(_digitValue(b.codeUnitAt(bStart + k))!);
           if (difference != 0) return difference;
         }
         i = aEnd;
@@ -76,7 +76,15 @@ class DownloadListSort {
     return (a.length - i).compareTo(b.length - j);
   }
 
-  static bool _isAsciiDigit(int unit) => unit >= 48 && unit <= 57;
+  // Arabic-Indic (٠-٩) and Eastern Arabic-Indic (۰-۹) numerals are
+  // common in Arabic download filenames. Treat them as decimal digits
+  // alongside ASCII without parsing an unbounded integer or changing names.
+  static int? _digitValue(int unit) {
+    if (unit >= 0x30 && unit <= 0x39) return unit - 0x30;
+    if (unit >= 0x0660 && unit <= 0x0669) return unit - 0x0660;
+    if (unit >= 0x06F0 && unit <= 0x06F9) return unit - 0x06F0;
+    return null;
+  }
 
   static int _compareScheduled(DownloadEntry a, DownloadEntry b) {
     final aTime = a.status == 'waiting' && a.scheduledAt > 0
