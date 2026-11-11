@@ -117,6 +117,50 @@ void main() {
     }
   });
 
+
+  test('warns before opening Windows package bundles and patch installers', () {
+    for (final name in [
+      'store.appx', 'bundle.appxbundle', 'installer.msix',
+      'bundle.msixbundle', 'patch.msp',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: 'safe.pdf'), isTrue,
+        reason: 'physical: $name');
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/safe.pdf', displayName: name), isFalse,
+        reason: 'display: $name');
+    }
+  });
+
+  test('requires opt-in for executable scripts and shortcut launchers', () {
+    for (final name in [
+      'module.psm1', 'script.vbe', 'script.js', 'script.jse',
+      'launcher.ws', 'launcher.wsh', 'task.sct', 'folder.scf',
+      'launch.command', 'launcher.desktop', 'shortcut.url',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: 'readme.txt'), isTrue,
+        reason: name);
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/$name', displayName: 'readme.txt'), isFalse,
+        reason: name);
+    }
+  });
+
+  test('new extension guards ignore harmless suffixes and hidden marks', () {
+    for (final name in [
+      'script.js.map', 'package.msix.txt', 'launcher.desktop.pdf',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: name), isFalse,
+        reason: name);
+    }
+    expect(FileOpenSafety.requiresConfirmation(
+      '/downloads/install.m\u200Bsix'), isTrue);
+    expect(FileOpenSafety.requiresConfirmation(
+      '/downloads/launcher.desktop...  '), isTrue);
+  });
+
   test('auto-open preserves safe files and refuses missing paths', () {
     expect(FileOpenSafety.mayAutoOpen(
       '/downloads/report.pdf', displayName: 'report.pdf'), isTrue);
