@@ -154,7 +154,7 @@ class BatchCsvImport {
     // headers and quoted CSV/TSV records retain the standard CSV parser.
     final firstLine = firstRecord.toString().trim();
     final normalizedFirst = firstLine.toLowerCase().replaceAll(
-      RegExp(r'[\\s_-]+'), '',
+      RegExp(r'[\s_-]+'), '',
     );
     const singleUrlHeaders = <String>{
       'url', 'link', 'downloadurl', 'downloadlink',
@@ -165,7 +165,7 @@ class BatchCsvImport {
         !firstLine.contains('"') &&
         (singleUrlHeaders.contains(normalizedFirst) ||
             _looksLikeHttpUrl(firstLine))) {
-      final lines = csv.split(RegExp(r'\\r\\n|\\r|\\n'))
+      final lines = csv.split(RegExp(r'\r\n|\r|\n'))
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty)
           .toList();
@@ -177,14 +177,14 @@ class BatchCsvImport {
               comma > line.indexOf('?');
         });
         final allSingleUrls = later.every((line) {
-          if (line.contains('"') || line.contains('\\t')) return false;
+          if (line.contains('"') || line.contains('\t')) return false;
           final comma = line.indexOf(',');
           final query = line.indexOf('?');
           return _looksLikeHttpUrl(line) &&
               (comma < 0 || (query >= 0 && comma > query));
         });
         if (hasSignedComma && allSingleUrls) {
-          return '\\u0000'; // No separator: preserve complete signed URLs.
+          return '\u0000'; // No separator: preserve complete signed URLs.
         }
       }
     }
