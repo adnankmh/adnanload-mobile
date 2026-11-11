@@ -145,6 +145,50 @@ class BatchCsvImport {
         if (char == '\t') tabs++;
       }
     }
+    // Single-column CSV exports may have a URL heading (or a plain first
+    // URL) followed by signed links containing literal commas in their query.
+    // The first record alone has no delimiter, so the normal comma parser
+    // would silently truncate *later* signed links. Only choose URL-per-line
+    // mode when every subsequent nonempty record is an unquoted HTTP(S) URL
+    // and any commas occur after its query marker. Explicit multi-column
+    // headers and quoted CSV/TSV records retain the standard CSV parser.
+    final firstLine = firstRecord.toString().trim();
+    final normalizedFirst = firstLine.toLowerCase().replaceAll(
+      RegExp(r'[\\s_-]+'), '',
+    );
+    const singleUrlHeaders = <String>{
+      'url', 'link', 'downloadurl', 'downloadlink',
+      'fileurl', 'filelink', 'sourceurl', 'sourcelink',
+      'الرابط', 'رابطالتحميل', 'رابطالتنزيل', 'رابطالملف',
+    };
+    if (commas == 0 && semicolons == 0 && tabs == 0 &&
+        !firstLine.contains('"') &&
+        (singleUrlHeaders.contains(normalizedFirst) ||
+            _looksLikeHttpUrl(firstLine))) {
+      final lines = csv.split(RegExp(r'\\r\\n|\\r|\\n'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+      if (lines.length > 1) {
+        final later = lines.skip(1);
+        final hasSignedComma = later.any((line) {
+          final comma = line.indexOf(',');
+          return comma >= 0 && line.indexOf('?') >= 0 &&
+              comma > line.indexOf('?');
+        });
+        final allSingleUrls = later.every((line) {
+          if (line.contains('"') || line.contains('\\t')) return false;
+          final comma = line.indexOf(',');
+          final query = line.indexOf('?');
+          return _looksLikeHttpUrl(line) &&
+              (comma < 0 || (query >= 0 && comma > query));
+        });
+        if (hasSignedComma && allSingleUrls) {
+          return '\\u0000'; // No separator: preserve complete signed URLs.
+        }
+      }
+    }
+
     // A line-per-link export can contain unquoted commas inside signed
     // query values. Without a header or another explicit delimiter, treating
     // these as CSV columns would silently truncate authorization tokens.
