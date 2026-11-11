@@ -1,4 +1,5 @@
 import '../models/download_entry.dart';
+import 'filename_search.dart';
 import 'smart_link.dart';
 
 /// Matches completed downloads in the Files tab without relying solely on
@@ -29,8 +30,10 @@ class FileHubFilter {
 
     final needle = query.trim().toLowerCase();
     if (needle.isEmpty) return true;
-    return entry.name.toLowerCase().contains(needle) ||
-        _basename(entry.path).toLowerCase().contains(needle);
+    // Search only display and stored basenames, never parent directories.
+    // Apply the same Arabic folding as the Downloads tab.
+    return FilenameSearch.contains(entry.name, needle) ||
+        FilenameSearch.contains(_basename(entry.path), needle);
   }
 
   static String _basename(String path) {
