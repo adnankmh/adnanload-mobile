@@ -64,4 +64,40 @@ void main() {
     expect(DownloadListFilter.matches(entry('future-state'),
         filter: 'active', query: ''), isFalse);
   });
+
+  test('Arabic filename search ignores vowel marks and alef variants', () {
+    final item = entry('complete',
+        name: 'إعْلان التـَّحميل النهائي.pdf');
+    expect(DownloadListFilter.matches(item,
+        filter: 'all', query: 'اعلان التحميل'), isTrue);
+    expect(DownloadListFilter.matches(item,
+        filter: 'all', query: 'إعْلان'), isTrue);
+    expect(DownloadListFilter.matches(item,
+        filter: 'all', query: 'غير موجود'), isFalse);
+  });
+
+  test('Arabic final alef maqsura and ordinary ya match in filenames', () {
+    final item = entry('complete', name: 'هدى.pdf');
+    expect(DownloadListFilter.matches(item,
+        filter: 'finished', query: 'هدي'), isTrue);
+    expect(DownloadListFilter.matches(item,
+        filter: 'failed', query: 'هدي'), isFalse);
+  });
+
+  test('marks-only query does not match every filename', () {
+    final item = entry('complete', name: 'report.pdf');
+    for (final query in ['\u064E', '\u0640', '\u0670']) {
+      expect(DownloadListFilter.matches(item,
+          filter: 'all', query: query), isFalse, reason: query);
+    }
+  });
+
+  test('signed URL search remains literal and percent encoding is preserved', () {
+    final item = entry('complete', name: 'ملف.pdf',
+        url: 'https://cdn.example.org/file?sig=AB%2FCD');
+    expect(DownloadListFilter.matches(item,
+        filter: 'all', query: 'AB%2FCD'), isTrue);
+    expect(DownloadListFilter.matches(item,
+        filter: 'all', query: 'AB/CD'), isFalse);
+  });
 }
