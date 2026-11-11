@@ -46,8 +46,8 @@ void main() {
 
   test('very long Arabic digit runs sort without integer overflow', () {
     final smaller = download('small', 'part٢.zip', 10);
-    final huge = download('huge', 'part${'٩' * 90}.zip', 20);
-    final larger = download('larger', 'part١${'٠' * 90}.zip', 30);
+    final huge = download('huge', 'part${List.filled(90, '٩').join()}.zip', 20);
+    final larger = download('larger', 'part١${List.filled(90, '٠').join()}.zip', 30);
     expect(DownloadListSort.ordered([larger, huge, smaller], 'name')
         .map((e) => e.id), ['small', 'huge', 'larger']);
   });
