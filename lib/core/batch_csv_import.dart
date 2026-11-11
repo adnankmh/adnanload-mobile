@@ -145,6 +145,20 @@ class BatchCsvImport {
         if (char == '\t') tabs++;
       }
     }
+    // A line-per-link export can contain unquoted commas inside signed
+    // query values. Without a header or another explicit delimiter, treating
+    // these as CSV columns would silently truncate authorization tokens.
+    // Preserve each complete HTTP(S) URL as a single field. A genuine CSV
+    // with an explicit URL header still uses the normal comma dialect.
+    if (commas > 0 && semicolons == 0 && tabs == 0) {
+      final firstLine = firstRecord.toString().trim();
+      final query = firstLine.indexOf('?');
+      final comma = firstLine.indexOf(',');
+      if (query >= 0 && comma > query &&
+          !firstLine.contains('"') && _looksLikeHttpUrl(firstLine)) {
+        return '\u0000'; // Sentinel absent from validated public URLs.
+      }
+    }
     if (semicolons == 0 && tabs == 0) return ',';
 
     const headings = <String>{
