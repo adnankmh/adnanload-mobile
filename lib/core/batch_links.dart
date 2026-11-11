@@ -25,7 +25,13 @@ class BatchLinks {
       r'!?\[[^\]\r\n]*\]\(<(https?://[^\s<>]+)>\)',
       caseSensitive: false,
     );
-    final angleExpanded = text.replaceAllMapped(
+    // Ordinary Markdown destinations may contain balanced literal
+    // parentheses, e.g. file(2).zip or a signed token=(a,b). The simple
+    // Markdown regex below cannot parse those nested delimiters. Expand
+    // only complete, public HTTP(S) destinations, without rewriting their
+    // signed query bytes or changing bare URLs.
+    final balancedExpanded = _expandBalancedMarkdownDestinations(text);
+    final angleExpanded = balancedExpanded.replaceAllMapped(
       angleMarkdownLinks, (match) => ' ${match.group(1)} ',
     );
     final markdownLinks = RegExp(
@@ -54,6 +60,53 @@ class BatchLinks {
       }
     }
     return result;
+  }
+
+  /// Extract Markdown URLs containing balanced literal parentheses.
+  ///
+  /// A bounded scan avoids treating malformed Markdown as an unlimited URL
+  /// and keeps all other Markdown/bare-link parsing on the existing path.
+  static String _expandBalancedMarkdownDestinations(String text) {
+    final markdownOpen = RegExp(r'!?\[[^\]\r\n]*\]\(');
+    final httpStart = RegExp(r'^https?://', caseSensitive: false);
+    final whitespace = RegExp(r'\s');
+    final output = StringBuffer();
+    var copiedThrough = 0;
+
+    for (final match in markdownOpen.allMatches(text)) {
+      if (match.start < copiedThrough) continue;
+      final start = match.end;
+      final prefixEnd = start + 8 < text.length ? start + 8 : text.length;
+      if (!httpStart.hasMatch(text.substring(start, prefixEnd))) continue;
+
+      var depth = 1;
+      var hasInnerParenthesis = false;
+      var closing = -1;
+      for (var index = start;
+          index < text.length && index - start < 8192;
+          index++) {
+        final character = text[index];
+        if (whitespace.hasMatch(character) ||
+            character == '<' || character == '>') break;
+        if (character == '(') {
+          hasInnerParenthesis = true;
+          if (++depth > 16) break;
+        } else if (character == ')') {
+          if (--depth == 0) {
+            closing = index;
+            break;
+          }
+        }
+      }
+      if (!hasInnerParenthesis || closing < 0) continue;
+      final destination = text.substring(start, closing);
+      if (UrlGuard.validate(destination) == null) continue;
+      output.write(text.substring(copiedThrough, match.start));
+      output.write(' $destination ');
+      copiedThrough = closing + 1;
+    }
+    output.write(text.substring(copiedThrough));
+    return output.toString();
   }
 
   /// Fragments are client-side anchors, not part of the HTTP resource.
