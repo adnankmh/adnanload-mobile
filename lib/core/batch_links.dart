@@ -30,7 +30,21 @@ class BatchLinks {
     // Markdown regex below cannot parse those nested delimiters. Expand
     // only complete, public HTTP(S) destinations, without rewriting their
     // signed query bytes or changing bare URLs.
-    final balancedExpanded = _expandBalancedMarkdownDestinations(text);
+    // Markdown permits an optional quoted title after the destination.
+    // Extract the destination only: a title can contain other URLs that
+    // must not accidentally become separate download jobs. Angle-wrapped
+    // destinations may contain literal parentheses and signed punctuation.
+    final titledMarkdownLinks = RegExp(
+      r"""!?\[[^\]\r\n]*\]\((?:<(https?://[^\s<>]+)>|(https?://[^\s()]+))\s+(?:"[^"\r\n]*"|'[^'\r\n]*')\)""",
+      caseSensitive: false,
+    );
+    final titledExpanded = text.replaceAllMapped(titledMarkdownLinks, (match) {
+      final destination = match.group(1) ?? match.group(2)!;
+      return UrlGuard.validate(destination) == null
+          ? match.group(0)!
+          : ' $destination ';
+    });
+    final balancedExpanded = _expandBalancedMarkdownDestinations(titledExpanded);
     final angleExpanded = balancedExpanded.replaceAllMapped(
       angleMarkdownLinks, (match) => ' ${match.group(1)} ',
     );
