@@ -67,9 +67,9 @@ class BatchLinks {
   /// A bounded scan avoids treating malformed Markdown as an unlimited URL
   /// and keeps all other Markdown/bare-link parsing on the existing path.
   static String _expandBalancedMarkdownDestinations(String text) {
-    final markdownOpen = RegExp(r'!?\\[[^\\]\\r\\n]*\\]\\(');
+    final markdownOpen = RegExp(r'!?\[[^\]\r\n]*\]\(');
     final httpStart = RegExp(r'^https?://', caseSensitive: false);
-    final whitespace = RegExp(r'\\s');
+    final whitespace = RegExp(r'\s');
     final output = StringBuffer();
     var copiedThrough = 0;
 
