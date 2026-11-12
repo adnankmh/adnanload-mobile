@@ -68,7 +68,12 @@ class DownloadListSort {
         j = bEnd;
         continue;
       }
-      final difference = a.codeUnitAt(i).compareTo(b.codeUnitAt(j));
+      // Compare digit tokens consistently against non-digits, regardless of
+      // numeral script. Otherwise '2' == '٢' but they can sort on opposite
+      // sides of 'A', violating the comparator's transitivity.
+      final aUnit = aDigit == null ? a.codeUnitAt(i) : 0x30 + aDigit;
+      final bUnit = bDigit == null ? b.codeUnitAt(j) : 0x30 + bDigit;
+      final difference = aUnit.compareTo(bUnit);
       if (difference != 0) return difference;
       i++;
       j++;
