@@ -50,6 +50,26 @@ void main() {
     expect(TransferPolicy.readyToDispatch(item, now), isFalse);
   });
 
+  test('native-owned direct work cannot be dispatched again', () {
+    final item = queued();
+    expect(TransferPolicy.readyToDispatch(item, now), isTrue);
+    item.nativeQueued = true;
+    expect(TransferPolicy.readyToDispatch(item, now), isFalse);
+    item.nativeQueued = false;
+    expect(TransferPolicy.readyToDispatch(item, now), isTrue);
+  });
+
+  test('native ownership acquired after snapshot blocks stale dispatch', () async {
+    final item = queued();
+    final snapshot = [item].where(
+      (job) => TransferPolicy.readyToDispatch(job, now),
+    ).toList();
+    await Future<void>.delayed(Duration.zero);
+    item.nativeQueued = true;
+    expect(snapshot, contains(item));
+    expect(TransferPolicy.readyToDispatch(snapshot.single, now), isFalse);
+  });
+
   test('future schedule and retry backoff are both respected at dispatch', () {
     final item = queued(scheduledAt: now + 1, retryAt: now + 2);
     expect(TransferPolicy.readyToDispatch(item, now), isFalse);
