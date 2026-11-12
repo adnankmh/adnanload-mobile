@@ -49,6 +49,20 @@ void main() {
     );
   });
 
+  test('rejected titled links never enqueue URLs from metadata', () {
+    const safe = 'https://example.org/real.zip';
+    expect(
+      BatchLinks.parse(
+        '[https://example.org/label.zip](http://127.0.0.1/admin '
+        '"https://example.org/title.zip") '
+        "[private](https://user:pass@example.org/a.zip "
+        "'https://example.org/other.zip') "
+        '$safe',
+      ),
+      [safe],
+    );
+  });
+
   test('signed punctuation survives a quoted Markdown title', () {
     const url = 'https://example.org/file.zip?token=a,;b%29';
     expect(

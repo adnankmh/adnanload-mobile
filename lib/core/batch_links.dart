@@ -40,8 +40,10 @@ class BatchLinks {
     );
     final titledExpanded = text.replaceAllMapped(titledMarkdownLinks, (match) {
       final destination = match.group(1) ?? match.group(2)!;
+      // A rejected destination must not expose its title or label to the
+      // later bare-link scan: those are metadata, not download targets.
       return UrlGuard.validate(destination) == null
-          ? match.group(0)!
+          ? ' '
           : ' $destination ';
     });
     final balancedExpanded = _expandBalancedMarkdownDestinations(titledExpanded);
