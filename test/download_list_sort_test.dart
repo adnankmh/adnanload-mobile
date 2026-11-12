@@ -99,6 +99,27 @@ void main() {
     expect(completed.status, 'complete');
   });
 
+  test('scheduled sort respects both time gates and retry-only jobs', () {
+    final delayed = item('delayed', 'A', 10, 5)
+      ..scheduledAt = 100
+      ..retryAt = 400;
+    final retry = item('retry', 'B', 20, 5)..retryAt = 200;
+    final scheduled = item('scheduled', 'C', 30, 5)
+      ..scheduledAt = 300
+      ..retryAt = 150;
+    final paused = item('paused', 'D', 40, 5)
+      ..retryAt = 50
+      ..status = 'paused';
+    final immediate = item('now', 'E', 50, 5);
+    final entries = [delayed, retry, scheduled, paused, immediate];
+    expect(DownloadListSort.ordered(entries, 'scheduled').map((e) => e.id),
+        ['retry', 'scheduled', 'delayed', 'now', 'paused']);
+    expect(entries.map((e) => e.id),
+        ['delayed', 'retry', 'scheduled', 'paused', 'now']);
+    expect(delayed.retryAt, 400);
+    expect(delayed.scheduledAt, 100);
+  });
+
   test('invalid schedule times are treated as unscheduled', () {
     final invalid = item('invalid', 'bad.zip', 40, 5)
       ..scheduledAt = -10;
@@ -128,9 +149,9 @@ void main() {
     expect(DownloadListSort.label('priority', arabic: false),
         'Queue priority');
     expect(DownloadListSort.label('scheduled', arabic: true),
-        'المجدولة الأقرب أولاً');
+        'الجدولة وإعادة المحاولة الأقرب أولاً');
     expect(DownloadListSort.label('scheduled', arabic: false),
-        'Next scheduled');
+        'Next scheduled / retry');
     expect(DownloadListSort.modes, hasLength(5));
   });
 }

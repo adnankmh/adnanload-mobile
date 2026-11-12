@@ -92,13 +92,20 @@ class DownloadListSort {
   }
 
   static int _compareScheduled(DownloadEntry a, DownloadEntry b) {
-    final aTime = a.status == 'waiting' && a.scheduledAt > 0
-        ? a.scheduledAt : null;
-    final bTime = b.status == 'waiting' && b.scheduledAt > 0
-        ? b.scheduledAt : null;
+    final aTime = _nextScheduledTime(a);
+    final bTime = _nextScheduledTime(b);
     if (aTime == null) return bTime == null ? 0 : 1;
     if (bTime == null) return -1;
     return aTime.compareTo(bTime);
+  }
+
+  // Dispatch requires both time gates to have elapsed. Show the later
+  // deadline, including retry-only jobs, without changing queue order.
+  static int? _nextScheduledTime(DownloadEntry item) {
+    if (item.status != 'waiting') return null;
+    final time = item.scheduledAt > item.retryAt
+        ? item.scheduledAt : item.retryAt;
+    return time > 0 ? time : null;
   }
 
   static String label(String mode, {required bool arabic}) {
@@ -107,7 +114,7 @@ class DownloadListSort {
         'oldest' => 'الأقدم أولاً',
         'name' => 'حسب الاسم',
         'priority' => 'حسب أولوية الطابور',
-        'scheduled' => 'المجدولة الأقرب أولاً',
+        'scheduled' => 'الجدولة وإعادة المحاولة الأقرب أولاً',
         _ => 'الأحدث أولاً',
       };
     }
@@ -115,7 +122,7 @@ class DownloadListSort {
       'oldest' => 'Oldest first',
       'name' => 'Name',
       'priority' => 'Queue priority',
-      'scheduled' => 'Next scheduled',
+      'scheduled' => 'Next scheduled / retry',
       _ => 'Newest first',
     };
   }
