@@ -59,6 +59,7 @@ class TransferPolicy {
   static bool readyToDispatch(DownloadEntry item, int now) =>
       item.status == 'waiting' && item.autoQueue &&
       !item.scheduledExternally &&
+      !(item.kind == 'direct' && item.nativeQueued) &&
       (item.scheduledAt == 0 || item.scheduledAt <= now) &&
       (item.retryAt == 0 || item.retryAt <= now);
 
