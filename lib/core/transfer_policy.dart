@@ -162,6 +162,12 @@ class TransferPolicy {
     // Recognize HTTP/1.1, HTTP/2 and HTTP/3 status lines as well as
     // extractor-style errors; do not mistake stale ranges for network outages.
     final codes = _statusCodes(text);
+    // Certificate validation failures are not transient transport failures.
+    // Never retry them merely because a nested socket error or HTTP 503
+    // appears in the diagnostic; the user must resolve the trust problem.
+    if (RegExp(r'certificate_verify_failed|certificate verify failed|certificate verification failed|certificate has expired|self[- ]signed certificate|hostname mismatch|certificate is not trusted|certpathvalidatorexception|trust anchor for certification path not found').hasMatch(text)) {
+      return false;
+    }
     // A stale partial download (412/416) needs an explicit fresh request;
     // automatically retrying the same range can repeatedly corrupt a resume.
     if (codes.any((code) => const {400, 401, 403, 404, 410, 412, 416, 451}.contains(code)) ||
