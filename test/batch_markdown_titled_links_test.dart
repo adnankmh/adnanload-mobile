@@ -70,4 +70,24 @@ void main() {
       [url],
     );
   });
+
+  test('balanced destinations with titles preserve signed URL bytes', () {
+    const url = 'https://example.org/file(2).zip?token=(a,b);c';
+    expect(
+      BatchLinks.parse('[download]($url "https://example.org/metadata.zip")'),
+      [url],
+    );
+    expect(BatchLinks.parse("![image]($url 'Archive')"), [url]);
+  });
+
+  test('rejected balanced titled links hide metadata URLs', () {
+    const safe = 'https://example.org/real.zip';
+    expect(
+      BatchLinks.parse(
+        '[https://example.org/label.zip](http://127.0.0.1/a(2).zip '
+        '"https://example.org/title.zip") $safe',
+      ),
+      [safe],
+    );
+  });
 }

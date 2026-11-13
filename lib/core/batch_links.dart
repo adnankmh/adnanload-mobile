@@ -86,6 +86,9 @@ class BatchLinks {
     final markdownOpen = RegExp(r'!?\[[^\]\r\n]*\]\(');
     final httpStart = RegExp(r'^https?://', caseSensitive: false);
     final whitespace = RegExp(r'\s');
+    final quotedTitle = RegExp(
+      r"""^[ \t]+(?:"[^"\r\n]*"|'[^'\r\n]*')\)""",
+    );
     final output = StringBuffer();
     var copiedThrough = 0;
 
@@ -98,12 +101,25 @@ class BatchLinks {
       var depth = 1;
       var hasInnerParenthesis = false;
       var closing = -1;
+      var destinationEnd = -1;
       for (var index = start;
           index < text.length && index - start < 8192;
           index++) {
         final character = text[index];
-        if (whitespace.hasMatch(character) ||
-            character == '<' || character == '>') break;
+        if (whitespace.hasMatch(character)) {
+          if (depth == 1 && hasInnerParenthesis) {
+            final limit = start + 8192 < text.length
+                ? start + 8192
+                : text.length;
+            final title = quotedTitle.firstMatch(text.substring(index, limit));
+            if (title != null) {
+              destinationEnd = index;
+              closing = index + title.end - 1;
+            }
+          }
+          break;
+        }
+        if (character == '<' || character == '>') break;
         if (character == '(') {
           hasInnerParenthesis = true;
           if (++depth > 16) break;
@@ -115,10 +131,14 @@ class BatchLinks {
         }
       }
       if (!hasInnerParenthesis || closing < 0) continue;
-      final destination = text.substring(start, closing);
-      if (UrlGuard.validate(destination) == null) continue;
+      final destination = text.substring(
+        start, destinationEnd < 0 ? closing : destinationEnd,
+      );
+      final valid = UrlGuard.validate(destination) != null;
+      if (!valid && destinationEnd < 0) continue;
       output.write(text.substring(copiedThrough, match.start));
-      output.write(' $destination ');
+      // A rejected titled destination must not expose metadata URLs.
+      output.write(valid ? ' $destination ' : ' ');
       copiedThrough = closing + 1;
     }
     output.write(text.substring(copiedThrough));
