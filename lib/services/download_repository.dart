@@ -258,7 +258,7 @@ class DownloadRepository extends ChangeNotifier {
   String diagnosticsSummary() {
     final m = metrics;
     return 'ADNANLOAD 2.1.0 / Android\n'
-      'Tasks: ${m.total} · Active: ${m.running} · Completed: ${m.completed}\n'
+      'Tasks: ${m.total} · Active: ${m.active} · Completed: ${m.completed}\n'
       'Waiting: ${m.waiting} · Failed: ${m.failed} · Retrying: ${m.retrying}\n'
       'Recorded crash events: $crashCount\n'
       'Network: $networkDescription · Battery: $_batteryPercent%\n'

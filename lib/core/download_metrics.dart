@@ -9,16 +9,21 @@ class DownloadMetrics {
   final int total;
   final double currentMbPerSecond;
   final int retrying;
+  final int verifying;
+  /// Transfers still processing, including post-download integrity checks.
+  int get active => running + verifying;
   const DownloadMetrics({required this.completed, required this.running,
     required this.waiting, required this.failed, required this.total,
-    required this.currentMbPerSecond, required this.retrying});
+    required this.currentMbPerSecond, required this.retrying, this.verifying = 0});
 
   factory DownloadMetrics.fromEntries(Iterable<DownloadEntry> entries) {
     var completed = 0, running = 0, waiting = 0, failed = 0, total = 0, retrying = 0;
     var speed = 0.0;
+    var verifying = 0;
     for (final item in entries) {
       total++;
       if (item.status == 'complete') completed++;
+      if (item.status == 'verifying') verifying++;
       if (item.status == 'running') {
         running++;
         // Restored or native-reported rates may be stale, negative or
@@ -33,6 +38,6 @@ class DownloadMetrics {
       if (item.retryAt > 0 && item.status == 'waiting') retrying++;
     }
     return DownloadMetrics(completed: completed, running: running, waiting: waiting,
-      failed: failed, total: total, currentMbPerSecond: speed, retrying: retrying);
+      failed: failed, total: total, currentMbPerSecond: speed, retrying: retrying, verifying: verifying);
   }
 }

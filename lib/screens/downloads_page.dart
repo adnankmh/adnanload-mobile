@@ -31,7 +31,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
       sortMode,
     );
     final metrics = widget.repo.metrics;
-    final active = metrics.running;
+    final active = metrics.active;
     final completed = metrics.completed;
     return Column(children: [
       Padding(padding: const EdgeInsets.fromLTRB(17, 16, 17, 7),
