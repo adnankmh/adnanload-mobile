@@ -248,6 +248,11 @@ class TransferPolicy {
         // Preserve the previous fallback for a single unrecognized hint,
         // but never ignore an ambiguous member of a repeated header set.
         if (dateMatch == null) {
+          // A malformed signed delay or a combined hint with an unknown
+          // first member must not hide a longer server backoff.
+          if (RegExp(r'^[+-]\d').hasMatch(value) || value.contains(',')) {
+            return null;
+          }
           return headers.length == 1 ? fallback : null;
         }
         if (dateMatch.end != value.length) return null;
