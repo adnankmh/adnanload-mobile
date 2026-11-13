@@ -10,7 +10,7 @@ class TransferPolicy {
   /// socket retry or create a false rate-limit delay. Preserve standalone
   /// 'status=503' and 'HTTP=429' formats from native/extractor errors.
   static final RegExp _httpStatus = RegExp(
-    r'(?:^|[\s:;,(])(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
+    r'(?:^|[\s:;,(])(?:http(?:/\d+(?:\.\d+)?)?(?:\s+(?:error|status(?:\s+code)?|response\s+code))?|status(?:\s+code)?)\s*[:=]?\s*(\d{3})\b',
     caseSensitive: false,
   );
 
