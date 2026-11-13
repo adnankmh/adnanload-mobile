@@ -53,6 +53,13 @@ class FileOpenSafety {
         // Windows may ignore trailing dots/spaces in file names. Treat
         // disguised installer extensions conservatively on every platform.
         .replaceFirst(RegExp(r'[. ]+$'), '');
-    return _riskyExtension.hasMatch(basename);
+    // Check both literal filenames and URL-style suffixes after removing
+    // invisible formatting. SmartLink only covers application packages,
+    // not script and shortcut extensions such as .cmd or .lnk.
+    final withoutSuffix = basename.split(RegExp(r'[?#]')).first
+        .trimRight()
+        .replaceFirst(RegExp(r'[. ]+$'), '');
+    return _riskyExtension.hasMatch(basename) ||
+        _riskyExtension.hasMatch(withoutSuffix);
   }
 }

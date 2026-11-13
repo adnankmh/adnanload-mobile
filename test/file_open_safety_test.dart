@@ -161,6 +161,24 @@ void main() {
       '/downloads/launcher.desktop...  '), isTrue);
   });
 
+  test('script and shortcut suffixes cannot bypass open confirmation', () {
+    for (final name in [
+      'run.cmd?download=1', 'script.js#notes', 'shortcut.lnk?x=1',
+      'launch.p\u200Bs1?token=abc', 'run.bat... #notes',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: 'safe.pdf'), isTrue,
+        reason: name);
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/safe.pdf', displayName: name), isFalse,
+        reason: name);
+    }
+    for (final name in ['script.js.map?x=1', 'report.pdf#notes']) {
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/$name', displayName: name), isTrue, reason: name);
+    }
+  });
+
   test('auto-open preserves safe files and refuses missing paths', () {
     expect(FileOpenSafety.mayAutoOpen(
       '/downloads/report.pdf', displayName: 'report.pdf'), isTrue);
