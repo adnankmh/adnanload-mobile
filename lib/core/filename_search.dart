@@ -20,7 +20,7 @@ class FilenameSearch {
       });
 
   static bool contains(String filename, String query) {
-    final needle = _fold(query.trim());
+    final needle = _fold(query).trim();
     return needle.isNotEmpty && _fold(filename).contains(needle);
   }
 }
