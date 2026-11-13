@@ -16,6 +16,21 @@ DownloadEntry entry(String id, String status, double speed, {int retryAt = 0}) {
 }
 
 void main() {
+  test('verification remains active without counting stale transfer speed', () {
+    final metrics = DownloadMetrics.fromEntries([
+      entry('a', 'running', 2.5),
+      entry('b', 'verifying', 999),
+      entry('c', 'complete', 100),
+      entry('d', 'waiting', 50),
+    ]);
+    expect(metrics.active, 2);
+    expect(metrics.running, 1);
+    expect(metrics.verifying, 1);
+    expect(metrics.completed, 1);
+    expect(metrics.waiting, 1);
+    expect(metrics.currentMbPerSecond, 2.5);
+  });
+
   test('sums only valid positive rates from running transfers', () {
     final metrics = DownloadMetrics.fromEntries([
       entry('a', 'running', 2.5),
