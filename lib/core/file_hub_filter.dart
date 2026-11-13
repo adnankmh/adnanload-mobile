@@ -8,7 +8,7 @@ class FileHubFilter {
   static String category(DownloadEntry entry) {
     // The stored file is authoritative when its basename has a known type.
     // SAF/opaque destinations may not have an extension, so use the title then.
-    final actual = SmartLink.category(_basename(entry.path));
+    final actual = SmartLink.category(_storedBasename(entry.path));
     if (actual != 'file') return actual;
     return SmartLink.category(_basename(entry.name));
   }
@@ -33,7 +33,26 @@ class FileHubFilter {
     // Search only display and stored basenames, never parent directories.
     // Apply the same Arabic folding as the Downloads tab.
     return FilenameSearch.contains(entry.name, needle) ||
-        FilenameSearch.contains(_basename(entry.path), needle);
+        FilenameSearch.contains(_storedBasename(entry.path), needle);
+  }
+
+  // SAF document IDs may encode a volume and nested directories in one
+  // URI segment. Decode that segment once, then keep only the filename.
+  // Never search URI query/fragment metadata or parent directory names.
+  static String _storedBasename(String path) {
+    if (!path.toLowerCase().startsWith('content://')) return _basename(path);
+    try {
+      final uri = Uri.parse(path);
+      if (uri.pathSegments.isEmpty) return '';
+      var name = uri.pathSegments.last;
+      if (uri.host == 'com.android.externalstorage.documents') {
+        final separator = name.indexOf(':');
+        if (separator >= 0) name = name.substring(separator + 1);
+      }
+      return _basename(name);
+    } on FormatException {
+      return '';
+    }
   }
 
   static String _basename(String path) {
