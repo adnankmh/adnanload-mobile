@@ -31,6 +31,20 @@ void main() {
     }
   });
 
+  test('routes XZ archives and OpenDocument files without rewriting URLs', () {
+    for (final path in ['backup.tar.xz', 'archive.XZ', 'report.odt',
+      'budget.ods', 'slides.odp', 'report%2EODT']) {
+      final url = 'https://cdn.example.com/$path?token=a%2Fb#view';
+      expect(BrowserDownloadRouter.isDirectFileNavigation(url), isTrue);
+      expect(BrowserDownloadRouter.isDirectFileNavigation(
+        url, isMainFrame: false), isFalse);
+    }
+    expect(BrowserDownloadRouter.isDirectFileNavigation(
+      'https://example.com/view?file=report.odt'), isFalse);
+    expect(BrowserDownloadRouter.isDirectFileNavigation(
+      'https://localhost/archive.xz'), isFalse);
+  });
+
   test('signed queries, fragments and uppercase extensions remain valid', () {
     expect(
       BrowserDownloadRouter.isDirectFileNavigation(

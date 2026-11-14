@@ -11,7 +11,7 @@ class BrowserDownloadRouter {
   BrowserDownloadRouter._();
 
   static final RegExp _directFileExtension = RegExp(
-    r'\.(?:zip|rar|7z|tar|gz|tgz|bz2|zst|apk|pdf|epub|mp3|m4a|wav|flac|ogg|opus|aac|mp4|mkv|webm|mov|avi|m4v|iso|exe|msi|deb|rpm|dmg|docx?|xlsx?|pptx?)$',
+    r'\.(?:zip|rar|7z|tar|gz|tgz|bz2|xz|zst|apk|pdf|epub|mp3|m4a|wav|flac|ogg|opus|aac|mp4|mkv|webm|mov|avi|m4v|iso|exe|msi|deb|rpm|dmg|docx?|xlsx?|pptx?|odt|ods|odp)$',
     caseSensitive: false,
   );
 
