@@ -9,14 +9,23 @@ class PlaylistSelection {
   /// character limit. Sparse selections that cannot fit are rejected rather
   /// than silently widening a range or producing an unusable expression.
   static String compact(Iterable<int> indices) {
-    final sorted = indices.toSet().toList()..sort();
+    // Validate while consuming the iterable: do not materialize an
+    // arbitrarily large selection before enforcing the distinct-item cap.
+    final unique = <int>{};
+    for (final position in indices) {
+      if (position < 1 || position > 100000) {
+        throw const FormatException('Invalid playlist selection');
+      }
+      unique.add(position);
+      if (unique.length > 100) {
+        throw const FormatException('Invalid playlist selection');
+      }
+    }
     // An empty explicit selection must never mean 'download the entire playlist'.
-    if (sorted.isEmpty) {
+    if (unique.isEmpty) {
       throw const FormatException('No playlist items selected');
     }
-    if (sorted.length > 100 || sorted.first < 1 || sorted.last > 100000) {
-      throw const FormatException('Invalid playlist selection');
-    }
+    final sorted = unique.toList()..sort();
 
     final ranges = <String>[];
     var start = sorted.first;
