@@ -88,6 +88,7 @@ class DownloadListSort {
     if (unit >= 0x30 && unit <= 0x39) return unit - 0x30;
     if (unit >= 0x0660 && unit <= 0x0669) return unit - 0x0660;
     if (unit >= 0x06F0 && unit <= 0x06F9) return unit - 0x06F0;
+    if (unit >= 0xFF10 && unit <= 0xFF19) return unit - 0xFF10;
     return null;
   }
 
