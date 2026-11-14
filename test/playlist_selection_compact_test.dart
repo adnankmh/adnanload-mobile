@@ -3,6 +3,30 @@ import 'package:adnanload_mobile/core/playlist_selection.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('rejects oversized lazy selections without consuming the tail', () {
+    Iterable<int> oversized() sync* {
+      for (var i = 1; i <= 101; i++) {
+        yield i;
+      }
+      throw StateError('must not consume beyond the cap');
+    }
+    expect(() => PlaylistSelection.compact(oversized()), throwsFormatException);
+  });
+
+  test('rejects an invalid position before consuming the tail', () {
+    Iterable<int> invalid() sync* {
+      yield 1;
+      yield 100001;
+      throw StateError('must not consume beyond invalid position');
+    }
+    expect(() => PlaylistSelection.compact(invalid()), throwsFormatException);
+  });
+
+  test('duplicate positions do not consume distinct selection capacity', () {
+    final positions = List<int>.generate(100, (index) => index + 1);
+    expect(PlaylistSelection.compact([...positions, ...positions]), '1-100');
+  });
+
   test('compresses the full 100-item preview into a valid expression', () {
     final selected = List<int>.generate(100, (index) => index + 1);
     final expression = PlaylistSelection.compact(selected);
