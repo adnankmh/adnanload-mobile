@@ -13,9 +13,9 @@ class FilenameSearch {
       // Arabic-Indic and Eastern Arabic-Indic numerals represent the same
       // decimal digits as ASCII. Fold filenames and search terms only:
       // signed URL queries must remain literal and byte-for-byte unchanged.
-      .replaceAllMapped(RegExp(r'[\u0660-\u0669\u06F0-\u06F9]'), (match) {
+      .replaceAllMapped(RegExp(r'[\u0660-\u0669\u06F0-\u06F9\uFF10-\uFF19]'), (match) {
         final digit = match.group(0)!.codeUnitAt(0);
-        final zero = digit >= 0x06F0 ? 0x06F0 : 0x0660;
+        final zero = digit >= 0xFF10 ? 0xFF10 : (digit >= 0x06F0 ? 0x06F0 : 0x0660);
         return String.fromCharCode(0x30 + digit - zero);
       });
 
