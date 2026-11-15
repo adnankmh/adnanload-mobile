@@ -186,7 +186,9 @@ class TransferPolicy {
     }
     if (codes.isNotEmpty) return true;
     return const ['timeout', 'timed out', 'connection reset',
-      'connection refused', 'connection closed', 'network unreachable', 'network is unreachable',
+      'connection refused', 'connection closed', 'connection aborted',
+      'unexpected end of stream', 'unknownhostexception',
+      'network unreachable', 'network is unreachable',
       'temporary failure', 'unable to resolve', 'socketexception',
       'too many requests', 'temporarily unavailable'].any(text.contains);
   }
