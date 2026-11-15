@@ -149,7 +149,9 @@ class TransferPolicy {
     if (!hasNetwork || (wifiOnly && !hasWifi)) return false;
     if (chargingOnly && !charging) return false;
     if (batteryFloor <= 0 || charging) return true;
-    return batteryPercent >= batteryFloor;
+    // Unknown or invalid platform readings cannot satisfy a battery floor.
+    return batteryPercent >= 0 && batteryPercent <= 100 &&
+        batteryPercent >= batteryFloor;
   }
 
   static bool networkTransient(String failure) {

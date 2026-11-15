@@ -30,6 +30,22 @@ void main() {
     expect(TransferPolicy.mayStart(wifiOnly:false,hasWifi:false,hasNetwork:true,
       batteryPercent:10,charging:true,batteryFloor:25),isTrue);
   });
+  test('Unknown and invalid battery readings cannot satisfy a floor', () {
+    for (final level in [-1, 101, 999]) {
+      expect(TransferPolicy.mayStart(wifiOnly: false, hasWifi: true,
+        hasNetwork: true, batteryPercent: level, charging: false,
+        batteryFloor: 25), isFalse);
+      expect(TransferPolicy.mayStart(wifiOnly: false, hasWifi: true,
+        hasNetwork: true, batteryPercent: level, charging: false,
+        batteryFloor: 0), isTrue);
+    }
+    expect(TransferPolicy.mayStart(wifiOnly: false, hasWifi: true,
+      hasNetwork: true, batteryPercent: 25, charging: false,
+      batteryFloor: 25), isTrue);
+    expect(TransferPolicy.mayStart(wifiOnly: false, hasWifi: true,
+      hasNetwork: true, batteryPercent: -1, charging: true,
+      batteryFloor: 25), isTrue);
+  });
   test('Retry is bounded and restricted to transient errors', () {
     expect(TransferPolicy.shouldRetry('SocketException: connection reset',0),isTrue);
     expect(TransferPolicy.shouldRetry('HTTP 503',2),isTrue);
