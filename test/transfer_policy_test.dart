@@ -56,6 +56,20 @@ void main() {
     expect(TransferPolicy.retryDelay(2).inSeconds,30);
     expect(TransferPolicy.retryDelay(3).inSeconds,90);
   });
+  test('Android transport interruptions retry without overriding fatal errors', () {
+    for (final failure in [
+      'java.net.UnknownHostException: example.org',
+      'java.io.IOException: unexpected end of stream',
+      'SocketException: connection aborted',
+    ]) {
+      expect(TransferPolicy.shouldRetry(failure, 0), isTrue);
+      expect(TransferPolicy.shouldRetry(failure, 3), isFalse);
+      expect(TransferPolicy.shouldRetry('HTTP 416 $failure', 0), isFalse);
+      expect(TransferPolicy.shouldRetry('checksum mismatch $failure', 0), isFalse);
+    }
+    expect(TransferPolicy.shouldRetry(
+      'failure https://example.org/unknownhostexception', 0), isFalse);
+  });
   test('Retry metadata persists across app restarts', () {
     final item=DownloadEntry(id:'a',url:'https://example.com/a.pdf',name:'a.pdf',
       kind:'direct',status:'waiting',addedAt:100,retryAttempts:2,retryAt:200);
