@@ -48,7 +48,7 @@ class DownloadRepository extends ChangeNotifier {
   final Battery _battery = Battery();
   DateTime? _lastNetworkProbe;
   List<ConnectivityResult> _networkTypes = const [ConnectivityResult.none];
-  int _batteryPercent = 100;
+  int _batteryPercent = -1; // Unknown until a successful platform probe.
   bool _isCharging = false; // Unknown charging state must not bypass opt-in gate.
   int crashCount = 0;
   bool automaticRetry = true;
@@ -144,12 +144,22 @@ class DownloadRepository extends ChangeNotifier {
   Future<void> _refreshDevicePolicy() async {
     try {
       _networkTypes = await _connectivity.checkConnectivity();
+    } catch (_) {
+      // Fail closed when connectivity is unknown.
+      _networkTypes = const [ConnectivityResult.none];
+    }
+    // Battery plugin failures must not disable unrestricted network jobs,
+    // or retain a stale charging state that bypasses an enabled constraint.
+    try {
       _batteryPercent = await _battery.batteryLevel;
+    } catch (_) {
+      _batteryPercent = -1;
+    }
+    try {
       final state = await _battery.batteryState;
       _isCharging = state == BatteryState.charging || state == BatteryState.full;
     } catch (_) {
-      // Fail closed for Wi-Fi-only media when connectivity is unknown.
-      _networkTypes = const [ConnectivityResult.none];
+      _isCharging = false;
     }
     _lastNetworkProbe = DateTime.now();
     notifyListeners();
