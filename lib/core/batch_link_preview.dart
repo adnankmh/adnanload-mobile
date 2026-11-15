@@ -28,7 +28,15 @@ class BatchLinkPreview {
     final detected = SmartLink.kind(url, preferred: preferred);
     final playlist = detected == 'playlist';
     final kind = playlist ? 'video' : detected;
-    final last = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
+    // Legacy servers may use non-UTF-8 percent-encoded filenames.
+    // Keep the original URL usable; only the optional preview is unknown.
+    var last = '';
+    try {
+      final segments = uri.pathSegments;
+      if (segments.isNotEmpty) last = segments.last;
+    } on FormatException {
+      // Do not guess a filename or rewrite the encoded URL.
+    }
     // A page URL, or a file without a recognizable extension, cannot give
     // us a reliable filename until the server responds. Common web document
     // and server-script suffixes are not reliable download filenames.
