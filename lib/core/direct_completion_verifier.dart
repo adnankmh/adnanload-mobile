@@ -88,9 +88,12 @@ class DirectCompletionVerifier {
           path: path, status: 'error', error: 'verificationFailed');
       }
       try {
+        // Hash the resolved target, not a mutable symlink alias. The
+        // final path check still rejects a destination that was retargeted.
+        final target = File(canonicalBefore);
         final actual = await (hashFile == null
-            ? sha256.bind(file.openRead()).first.then((digest) => digest.toString())
-            : hashFile(file));
+            ? sha256.bind(target.openRead()).first.then((digest) => digest.toString())
+            : hashFile(target));
         if (!isCurrent()) return null;
         final after = await file.stat();
         if (!isCurrent()) return null;
