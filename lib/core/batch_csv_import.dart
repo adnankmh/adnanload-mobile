@@ -239,6 +239,19 @@ class BatchCsvImport {
         (cell) => _looksLikeHttpUrl(cell.trim().replaceAll('"', '')))) {
       return '\t';
     }
+    // A title followed by a semicolon and a URL with a comma in its
+    // query is a regional CSV record, not a comma-separated record.
+    final separator = firstRecord.toString().indexOf(';');
+    if (separator > 0) {
+      final prefix = firstRecord.toString().substring(0, separator).trim();
+      final suffix = firstRecord.toString().substring(separator + 1).trim();
+      final query = suffix.indexOf('?');
+      final comma = suffix.indexOf(',');
+      if (!prefix.contains(',') && !_looksLikeHttpUrl(prefix) &&
+          query >= 0 && comma > query && _looksLikeHttpUrl(suffix)) {
+        return ';';
+      }
+    }
     if (commas > 0) return ',';
     if (semicolonHeader) return ';';
 
