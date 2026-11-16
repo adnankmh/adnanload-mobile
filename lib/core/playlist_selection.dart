@@ -50,12 +50,17 @@ class PlaylistSelection {
   static List<int> expand(String raw, {int limit = 100}) {
     final expression = PlaylistRules.parseItems(raw);
     if (expression.isEmpty) return const [];
+    // Independent queue tasks must remain bounded even if a caller supplies
+    // a custom limit. Smaller limits are useful for constrained callers.
+    if (limit < 1 || limit > 100) {
+      throw const FormatException('Invalid playlist expansion limit');
+    }
     final result = <int>{};
     for (final term in expression.split(',')) {
       final pieces = term.split(RegExp(r'[-:]'));
       final first = int.parse(pieces[0]);
       final last = pieces.length == 1 ? first : int.parse(pieces[1]);
-      if (last - first > limit || first > 100000 || last > 100000) {
+      if (first > 100000 || last > 100000 || last - first >= limit) {
         throw const FormatException('Too many playlist items');
       }
       for (int n = first; n <= last; n++) {

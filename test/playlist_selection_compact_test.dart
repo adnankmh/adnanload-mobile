@@ -3,6 +3,22 @@ import 'package:adnanload_mobile/core/playlist_selection.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('independent playlist expansion enforces the task cap', () {
+    expect(() => PlaylistSelection.expand('1-101', limit: 101),
+        throwsFormatException);
+    expect(() => PlaylistSelection.expand('1', limit: 0),
+        throwsFormatException);
+    expect(() => PlaylistSelection.expand('1', limit: -1),
+        throwsFormatException);
+    expect(PlaylistSelection.expand('1-3', limit: 3), [1, 2, 3]);
+    expect(() => PlaylistSelection.expand('1-4', limit: 3),
+        throwsFormatException);
+    expect(PlaylistSelection.expand('1-3,2-4', limit: 4), [1, 2, 3, 4]);
+    expect(() => PlaylistSelection.expand('1-3,3-5', limit: 4),
+        throwsFormatException);
+    expect(PlaylistSelection.expand(''), isEmpty);
+  });
+
   test('rejects oversized lazy selections without consuming the tail', () {
     Iterable<int> oversized() sync* {
       for (var i = 1; i <= 101; i++) {
