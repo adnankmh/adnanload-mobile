@@ -179,6 +179,23 @@ void main() {
     }
   });
 
+  test('script interpreter files require explicit open confirmation', () {
+    for (final name in [
+      'run.py', 'gui.PYW', 'script.rb', 'task.pl', 'run.bash',
+      'run.zsh', 'run.fish', 'run.ksh', 'run.csh', 'run.tcl',
+      'module.psd1', 'run.p\u200By?token=abc',
+    ]) {
+      expect(FileOpenSafety.requiresConfirmation(
+        '/downloads/$name', displayName: 'safe.pdf'), isTrue, reason: name);
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/safe.pdf', displayName: name), isFalse, reason: name);
+    }
+    for (final name in ['script.py.txt', 'notes.rb.pdf', 'fish.jpg']) {
+      expect(FileOpenSafety.mayAutoOpen(
+        '/downloads/$name', displayName: name), isTrue, reason: name);
+    }
+  });
+
   test('auto-open preserves safe files and refuses missing paths', () {
     expect(FileOpenSafety.mayAutoOpen(
       '/downloads/report.pdf', displayName: 'report.pdf'), isTrue);
