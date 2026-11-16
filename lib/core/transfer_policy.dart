@@ -167,7 +167,7 @@ class TransferPolicy {
     // Certificate validation failures are not transient transport failures.
     // Never retry them merely because a nested socket error or HTTP 503
     // appears in the diagnostic; the user must resolve the trust problem.
-    if (RegExp(r'certificate_verify_failed|certificate verify failed|certificate verification failed|certificate has expired|self[- ]signed certificate|hostname mismatch|certificate is not trusted|certpathvalidatorexception|trust anchor for certification path not found').hasMatch(text)) {
+    if (RegExp(r'certificate_verify_failed|certificate verify failed|certificate verification failed|certificate has expired|self[- ]signed certificate|hostname mismatch|certificate is not trusted|certpathvalidatorexception|sslpeerunverifiedexception|certificateexpiredexception|certificatenotyetvalidexception|trust anchor for certification path not found').hasMatch(text)) {
       return false;
     }
     // A stale partial download (412/416) needs an explicit fresh request;
