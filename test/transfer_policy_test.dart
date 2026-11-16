@@ -70,6 +70,19 @@ void main() {
     expect(TransferPolicy.shouldRetry(
       'failure https://example.org/unknownhostexception', 0), isFalse);
   });
+  test('Android certificate failures never trigger automatic retries', () {
+    for (final failure in [
+      'javax.net.ssl.SSLPeerUnverifiedException: peer not authenticated',
+      'java.security.cert.CertificateExpiredException',
+      'java.security.cert.CertificateNotYetValidException',
+    ]) {
+      expect(TransferPolicy.shouldRetry('$failure; HTTP 503 timeout', 0),
+        isFalse);
+    }
+    expect(TransferPolicy.shouldRetry(
+      'SocketException: timeout https://example.org/SSLPeerUnverifiedException',
+      0), isTrue);
+  });
   test('Retry metadata persists across app restarts', () {
     final item=DownloadEntry(id:'a',url:'https://example.com/a.pdf',name:'a.pdf',
       kind:'direct',status:'waiting',addedAt:100,retryAttempts:2,retryAt:200);
