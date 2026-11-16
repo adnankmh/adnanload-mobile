@@ -11,7 +11,7 @@ class FileOpenSafety {
   // Include installer bundles, script hosts and desktop launchers on other
   // platforms. Opening them is always an explicit user decision.
   static final RegExp _riskyExtension = RegExp(
-    r'\.(?:apk|apks|xapk|aab|deb|rpm|dmg|appx|appxbundle|msix|msixbundle|exe|msi|msp|bat|cmd|ps1|psm1|sh|command|desktop|jar|vbs|vbe|js|jse|ws|wsh|com|scr|hta|sct|scf|wsf|pif|cpl|reg|lnk|url)$',
+    r'\.(?:apk|apks|xapk|aab|deb|rpm|dmg|appx|appxbundle|msix|msixbundle|exe|msi|msp|bat|cmd|ps1|psm1|sh|command|desktop|jar|vbs|vbe|js|jse|ws|wsh|com|scr|hta|sct|scf|wsf|pif|cpl|reg|lnk|url|py|pyw|rb|pl|bash|zsh|fish|ksh|csh|tcl|psd1)$',
     caseSensitive: false,
   );
 
