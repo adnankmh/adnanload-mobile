@@ -45,6 +45,19 @@ void main() {
     expect(scheduledDirectUrl('job', tooLong, 'file.bin'), isNull);
   });
 
+  test('scheduled payload counts UTF-8 bytes rather than UTF-16 units', () {
+    const prefix = 'https://example.org/';
+    final arabic = prefix + ('ع' * 1800);
+    final emoji = prefix + ('😀' * 900);
+    expect(scheduledDirectUrl('job', arabic, 'file.bin'), isNull);
+    expect(scheduledDirectUrl('job', emoji, 'file.bin'), isNull);
+    expect(scheduledDirectUrl('job', prefix + ('ع' * 100), 'file.bin'),
+        isNotNull);
+    final boundary = prefix + ('a' * (3500 - prefix.length));
+    expect(scheduledDirectUrl('job', boundary, 'file.bin'), isNotNull);
+    expect(scheduledDirectUrl('job', boundary + 'a', 'file.bin'), isNull);
+  });
+
   test('scheduled payload preserves public signed download URL', () {
     const signed = 'https://example.org/file.bin?token=a%2Fb&expires=123';
     expect(scheduledDirectUrl('job', signed, 'file.bin')?.toString(),
