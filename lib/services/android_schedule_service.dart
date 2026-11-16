@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show DartPluginRegistrant;
 
@@ -16,7 +17,7 @@ String scheduledWorkId(String id) => 'adnanload.direct.$id';
 /// Reject permanent, unsafe scheduler payloads instead of retrying them forever.
 /// Apply the same URL and filename rules at registration and execution time.
 Uri? scheduledDirectUrl(String id, String rawUrl, String fileName) {
-  if (id.isEmpty || rawUrl.length > 3500 ||
+  if (id.isEmpty || utf8.encode(rawUrl).length > 3500 ||
       UrlGuard.safeName(fileName) != fileName) return null;
   return UrlGuard.validate(rawUrl);
 }
