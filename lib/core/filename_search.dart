@@ -10,6 +10,9 @@ class FilenameSearch {
       .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]'), '')
       .replaceAll(RegExp(r'[أإآٱ]'), 'ا')
       .replaceAll('ى', 'ي')
+      // Ignore invisible bidi formatting controls pasted with Arabic text.
+      // Filename search only: never normalize download URLs or file paths.
+      .replaceAll(RegExp(r'[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]'), '')
       // Arabic-Indic and Eastern Arabic-Indic numerals represent the same
       // decimal digits as ASCII. Fold filenames and search terms only:
       // signed URL queries must remain literal and byte-for-byte unchanged.
