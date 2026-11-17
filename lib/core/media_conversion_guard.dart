@@ -51,11 +51,35 @@ class MediaConversionGuard {
   /// Unlike File.exists(), this also reserves dangling symlinks and directories
   /// so the converter cannot select an already occupied output name.
   static Future<bool> destinationOccupied(File destination) async {
-    return await FileSystemEntity.type(
-          destination.path,
-          followLinks: false,
-        ) !=
+    return await FileSystemEntity.type(destination.path, followLinks: false) !=
         FileSystemEntityType.notFound;
+  }
+
+  /// Claim a fresh filename atomically before moving in a validated output.
+  static Future<File> publishConvertedOutput(
+    File stagedOutput, {
+    required Directory folder,
+    required String baseName,
+    required String extension,
+  }) async {
+    for (var index = 0; ; index++) {
+      final name = index == 0 ? baseName : '${baseName}_converted_$index';
+      final output = File(
+        '${folder.path}${Platform.pathSeparator}$name.$extension',
+      );
+      try {
+        await output.create(exclusive: true);
+      } on FileSystemException {
+        if (await destinationOccupied(output)) continue;
+        rethrow;
+      }
+      try {
+        return await stagedOutput.rename(output.path);
+      } catch (_) {
+        await removePartialOutput(output);
+        rethrow;
+      }
+    }
   }
 
   static Future<bool> outputIsUsable(
@@ -64,10 +88,7 @@ class MediaConversionGuard {
   ) async {
     try {
       // A symlink must not redirect FFmpeg output onto an existing file.
-      if (await FileSystemEntity.type(
-            output.path,
-            followLinks: false,
-          ) !=
+      if (await FileSystemEntity.type(output.path, followLinks: false) !=
           FileSystemEntityType.file) {
         return false;
       }
@@ -90,10 +111,7 @@ class MediaConversionGuard {
     File? protectedSource,
   }) async {
     try {
-      if (await FileSystemEntity.type(
-            output.path,
-            followLinks: false,
-          ) ==
+      if (await FileSystemEntity.type(output.path, followLinks: false) ==
           FileSystemEntityType.file) {
         // A second path may be a hard link to the input. Never delete it.
         if (protectedSource != null &&
