@@ -8,7 +8,9 @@ import sys
 
 
 SIGNER_FINGERPRINT = re.compile(
-    r"^Signer #\d+ certificate SHA-256 digest:\s*([0-9a-f:]+)$", re.I | re.M
+    r"^Signer(?: #\d+| \(minSdkVersion=\d+(?: \(dev release=true\))?, maxSdkVersion=\d+\))"
+    r" certificate SHA-256 digest:[ \t]*([0-9a-f:]+)[ \t]*$",
+    re.I | re.M,
 )
 
 
@@ -30,7 +32,10 @@ def apk_signers(apksigner, apk):
         normalize_fingerprint(value) for value in SIGNER_FINGERPRINT.findall(result.stdout)
     )
     if not fingerprints:
-        raise ValueError(f"No signing certificate reported for {apk.name}.")
+        digest_labels = [line.partition(" digest:")[0] for line in result.stdout.splitlines()
+                         if "certificate SHA-256 digest:" in line]
+        details = f" Reported labels: {', '.join(digest_labels)}." if digest_labels else ""
+        raise ValueError(f"No signing certificate reported for {apk.name}.{details}")
     return fingerprints
 
 
