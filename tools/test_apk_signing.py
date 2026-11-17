@@ -18,6 +18,16 @@ def signed_response(fingerprint):
 
 
 class ApkSigningTests(unittest.TestCase):
+    def test_reads_v2_signer_label_from_android_build_tools(self):
+        output = (
+            "Verifies\n"
+            "Verified using v2 scheme (APK Signature Scheme v2): true\n"
+            f"V2 Signer: certificate SHA-256 digest: {CERT}\n"
+            f"Source Stamp Signer certificate SHA-256 digest: {OTHER_CERT}\n"
+        )
+        with patch("verify_apk_signing.subprocess.run", return_value=CompletedProcess([], 0, output, "")):
+            self.assertEqual(verify_apks("apksigner", [ARM], CERT), {ARM.name: [CERT]})
+
     def test_reads_android_v31_signers_by_sdk_range_and_ignores_source_stamp(self):
         output = (
             f"Signer (minSdkVersion=33 (dev release=true), maxSdkVersion=2147483647) certificate SHA-256 digest: {CERT}\n"

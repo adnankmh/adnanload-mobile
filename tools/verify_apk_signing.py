@@ -8,7 +8,8 @@ import sys
 
 
 SIGNER_FINGERPRINT = re.compile(
-    r"^Signer(?: #\d+| \(minSdkVersion=\d+(?: \(dev release=true\))?, maxSdkVersion=\d+\))"
+    r"^(?:V[1-4](?:\.1)? )?Signer"
+    r"(?: #\d+| \(minSdkVersion=\d+(?: \(dev release=true\))?, maxSdkVersion=\d+\))?:?"
     r" certificate SHA-256 digest:[ \t]*([0-9a-f:]+)[ \t]*$",
     re.I | re.M,
 )
