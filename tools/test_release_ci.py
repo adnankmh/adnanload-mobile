@@ -59,6 +59,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("apk-contents.txt", self.workflow)
         self.assertIn("tools/report_apk_size.py", self.workflow)
         self.assertIn("--limit-mb 50", self.workflow)
+        self.assertIn("tools/verify_apk_signing.py", self.workflow)
+        self.assertIn("build/release-checksums/SIGNING_CERTIFICATES.txt", self.workflow)
+        self.assertIn("github.event_name != 'pull_request' && vars.ADNANLOAD_EXPECTED_SIGNING_CERT_SHA256",
+                      self.workflow)
 
 
 if __name__ == "__main__":

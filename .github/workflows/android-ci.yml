@@ -86,6 +86,7 @@ jobs:
           python3 tools/test_apk_size_report.py
           python3 tools/test_android_config.py
           python3 tools/test_ci_signing.py
+          python3 tools/test_apk_signing.py
           python3 tools/validate_release_v2.py
 
       - name: Configure optional production-signing secrets
@@ -131,6 +132,8 @@ jobs:
           flutter build apk --release --no-pub --split-per-abi 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
 
       - name: Validate generated APK archive and Android package
+        env:
+          ADNANLOAD_EXPECTED_SIGNING_CERT_SHA256: ${{ github.event_name != 'pull_request' && vars.ADNANLOAD_EXPECTED_SIGNING_CERT_SHA256 || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -142,6 +145,8 @@ jobs:
           fi
           aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
           test -x "$aapt"
+          apksigner="$(dirname "$aapt")/apksigner"
+          test -x "$apksigner"
           mkdir -p build/ci-diagnostics
           for apk in "${apks[@]}"; do
             echo "Validating $apk"
@@ -156,6 +161,8 @@ jobs:
               grep -q '^lib/arm64-v8a/' build/ci-diagnostics/apk-contents.txt
             fi
           done
+          python3 tools/verify_apk_signing.py --apksigner "$apksigner" \
+            --report build/release-checksums/SIGNING_CERTIFICATES.txt "${apks[@]}"
           python3 tools/report_apk_size.py build/app/outputs/flutter-apk/*.apk --out-dir build/release-checksums --limit-mb 50
           df -h /
 
