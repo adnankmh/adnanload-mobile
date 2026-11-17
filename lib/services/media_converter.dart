@@ -18,11 +18,8 @@ class MediaConverter {
     final base=fileName.contains('.')?fileName.substring(0,fileName.lastIndexOf('.')):fileName;
     final safeBase=UrlGuard.safeName(base);
     final folder=source.parent;
-    var file=File('${folder.path}${Platform.pathSeparator}$safeBase.$target');
-    var index=1;
-    while(await MediaConversionGuard.destinationOccupied(file) || file.path==source.path){
-      file=File('${folder.path}${Platform.pathSeparator}${safeBase}_converted_${index++}.$target');
-    }
+    final staging = await folder.createTemp('.adnanload-conversion-');
+    final file = File('${staging.path}${Platform.pathSeparator}output.$target');
     final args=<String>['-nostdin','-hide_banner','-loglevel','error','-n',
       '-i',source.path];
     switch(target){
@@ -46,13 +43,16 @@ class MediaConverter {
           !await MediaConversionGuard.outputIsUsable(file, sourceSnapshot)) {
         throw StateError('FFmpeg conversion failed or files changed');
       }
-      return file.path;
-    } catch (_) {
-      await MediaConversionGuard.removePartialOutput(
-        file,
-        protectedSource: source,
+      final published = await MediaConversionGuard.publishConvertedOutput(
+        file, folder: folder, baseName: safeBase, extension: target,
       );
-      rethrow;
+      return published.path;
+    } finally {
+      try {
+        await staging.delete(recursive: true);
+      } on FileSystemException {
+        // Preserve the conversion result or the original failure.
+      }
     }
   }
 }

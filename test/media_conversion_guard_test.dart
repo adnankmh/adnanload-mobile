@@ -122,4 +122,24 @@ void main() {
     expect(await alias.exists(), isTrue);
     expect(await source.readAsBytes(), [1, 2, 3]);
   }, skip: Platform.isWindows);
+
+  test('concurrent conversions publish separate files and keep an existing result',
+      () async {
+    final old = await File('${root.path}/sample.mp3').writeAsBytes([1]);
+    final firstDir = await root.createTemp('first-');
+    final secondDir = await root.createTemp('second-');
+    final staged = [
+      await File('${firstDir.path}/output.mp3').writeAsBytes([2]),
+      await File('${secondDir.path}/output.mp3').writeAsBytes([3]),
+    ];
+    final published = await Future.wait(staged.map((file) =>
+        MediaConversionGuard.publishConvertedOutput(
+          file, folder: root, baseName: 'sample', extension: 'mp3',
+        )));
+    expect(published.map((file) => file.uri.pathSegments.last).toSet(),
+      {'sample_converted_1.mp3', 'sample_converted_2.mp3'});
+    expect(await old.readAsBytes(), [1]);
+    expect(await published[0].readAsBytes(), [2]);
+    expect(await published[1].readAsBytes(), [3]);
+  });
 }
