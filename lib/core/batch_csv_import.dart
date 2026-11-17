@@ -194,6 +194,25 @@ class BatchCsvImport {
     // these as CSV columns would silently truncate authorization tokens.
     // Preserve each complete HTTP(S) URL as a single field. A genuine CSV
     // with an explicit URL header still uses the normal comma dialect.
+    // URL-only exports can contain both comma and semicolon query values.
+    // Require every record to be a single unquoted URL with punctuation
+    // confined to its query; explicit CSV headers retain their dialect.
+    if (commas > 0 && semicolons > 0 && tabs == 0) {
+      final lines = csv.split(RegExp(r'\r\n|\r|\n'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty);
+      if (lines.every((line) {
+        final query = line.indexOf('?');
+        final comma = line.indexOf(',');
+        final semicolon = line.indexOf(';');
+        return !RegExp(r'[\s"]').hasMatch(line) &&
+            _looksLikeHttpUrl(line) &&
+            (comma < 0 || (query >= 0 && comma > query)) &&
+            (semicolon < 0 || (query >= 0 && semicolon > query));
+      })) {
+        return '\u0000';
+      }
+    }
     if (commas > 0 && semicolons == 0 && tabs == 0) {
       final firstLine = firstRecord.toString().trim();
       final query = firstLine.indexOf('?');

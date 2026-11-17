@@ -17,6 +17,18 @@ void main() {
     expect(imported('$first\r\n$second\r\n'), [first, second]);
   });
 
+  test('preserves mixed signed punctuation in URL-only records', () {
+    const first = 'https://example.org/a.zip?token=a,b;c';
+    const second = 'https://example.org/b.zip?token=x;y,z';
+    expect(imported('$first\r\n$second\r\n'), [first, second]);
+  });
+
+  test('mixed punctuation does not bypass the public URL guard', () {
+    const local = 'http://127.0.0.1/private?token=a,b;c';
+    const safe = 'https://example.org/a.zip?token=x;y,z';
+    expect(imported('$local\n$safe\n'), [safe]);
+  });
+
   test('explicit comma CSV headers and download-column priority still work', () {
     const csv = 'Source URL,Download URL\n'
         'https://example.org/page,'
