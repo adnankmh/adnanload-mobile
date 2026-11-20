@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
+import '../core/playlist_selection.dart';
 import '../services/playlist_explorer.dart';
 
 class PlaylistExplorerSheet extends StatefulWidget {
@@ -36,8 +37,17 @@ class _PlaylistExplorerSheetState extends State<PlaylistExplorerSheet> {
                 dense:true);
             })),
           const SizedBox(height:8),FilledButton(
-            onPressed:selected.isEmpty?null:()=>Navigator.pop(context,(
-              selected.toList()..sort()).join(',')),
+            onPressed:selected.isEmpty?null:(){
+              try {
+                Navigator.pop(context,PlaylistSelection.compact(selected));
+              } on FormatException {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content:Text(widget.strings.locale == 'ar'
+                    ? 'الاختيارات المتباعدة كثيرة جدًا. قلّل عددها أو اختر عناصر متتالية.'
+                    : 'Too many separate items. Select fewer or consecutive entries.'),
+                ));
+              }
+            },
             child:Text(t('playlistUseSelected'))),
         ]);
       }))); 

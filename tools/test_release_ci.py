@@ -22,6 +22,26 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_release_artifact_name_matches_pubspec(self):
         self.assertIn(f"ADNANLOAD-v{self.version}-RELEASE-APK", self.workflow)
 
+    def test_pull_requests_do_not_upload_release_artifacts(self):
+        # PR checks must be green when analyzer, tests and APK validation pass,
+        # even when the separate GitHub Actions release-artifact quota is full.
+        self.assertRegex(
+            self.workflow,
+            r"(?m)^      - name: Upload Release APKs\n"
+            r"        if: \$\{\{ github\.event_name != 'pull_request' \}\}\n"
+            r"        uses: actions/upload-artifact@v4",
+        )
+        self.assertIn("          retention-days: 3", self.workflow)
+
+    def test_failure_diagnostics_do_not_consume_pr_artifact_quota(self):
+        self.assertRegex(
+            self.workflow,
+            r"(?m)^      - name: Upload build failure diagnostics \(if any\)\n"
+            r"        if: \$\{\{ failure\(\) && github\.event_name != 'pull_request' \}\}\n"
+            r"        uses: actions/upload-artifact@v4",
+        )
+        self.assertIn("          retention-days: 1", self.workflow)
+
     def test_runner_cleans_only_unrelated_toolchains(self):
         self.assertIn("Reclaim non-Android disk space", self.workflow)
         self.assertIn("/usr/share/dotnet", self.workflow)
@@ -39,6 +59,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("apk-contents.txt", self.workflow)
         self.assertIn("tools/report_apk_size.py", self.workflow)
         self.assertIn("--limit-mb 50", self.workflow)
+        self.assertIn("tools/verify_apk_signing.py", self.workflow)
+        self.assertIn("build/release-checksums/SIGNING_CERTIFICATES.txt", self.workflow)
+        self.assertIn("github.event_name != 'pull_request' && vars.ADNANLOAD_EXPECTED_SIGNING_CERT_SHA256",
+                      self.workflow)
 
 
 if __name__ == "__main__":

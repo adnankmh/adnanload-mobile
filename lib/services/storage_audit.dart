@@ -14,8 +14,14 @@ class StorageAudit {
     Map<int, List<String>> seenBySize,
   ) async {
     for (final previous in seenBySize[size] ?? const <String>[]) {
-      if (await FileSystemEntity.identical(previous, canonicalPath)) {
-        return true;
+      try {
+        if (await FileSystemEntity.identical(previous, canonicalPath)) {
+          return true;
+        }
+      } on FileSystemException {
+        // A previously scanned path can disappear between history entries.
+        // Keep auditing other files when only that earlier path has gone.
+        if (await File(previous).exists()) rethrow;
       }
     }
     return false;
@@ -25,7 +31,7 @@ class StorageAudit {
   /// writing (or a symlink can be retargeted) while this read-only audit runs.
   /// The optional digest callback makes these races deterministic in tests.
   static Future<List<List<DownloadEntry>>> findDuplicates(
-    List<DownloadEntry> entries, {
+    Iterable<DownloadEntry> entries, {
     Future<String> Function(File)? hashFile,
   }) async {
     final lengths = <int, List<DownloadEntry>>{};
@@ -94,7 +100,7 @@ class StorageAudit {
   }
 
   /// App-managed completed files only; cached downloads not in history are not counted.
-  static Future<int> recordedBytes(List<DownloadEntry> entries) async {
+  static Future<int> recordedBytes(Iterable<DownloadEntry> entries) async {
     var total = 0;
     final visitedPaths = <String>{};
     final physicalPathsBySize = <int, List<String>>{};

@@ -70,4 +70,21 @@ void main() {
     ]);
     expect(total, 8); // 4 bytes in original + 4 in independent copy.
   }, skip: Platform.isWindows);
+
+  test('a removed history path does not hide two remaining copies', () async {
+    final copy = File('${temp.path}/copy.bin');
+    await copy.writeAsBytes([10, 20, 30, 40]);
+
+    Iterable<DownloadEntry> history() sync* {
+      yield _complete('removed', original.path);
+      original.deleteSync();
+      yield _complete('surviving-link', hardLink.path);
+      yield _complete('copy', copy.path);
+    }
+
+    final groups = await StorageAudit.findDuplicates(history());
+    expect(groups, hasLength(1));
+    expect(groups.single.map((entry) => entry.id).toSet(),
+        equals({'surviving-link', 'copy'}));
+  }, skip: Platform.isWindows);
 }

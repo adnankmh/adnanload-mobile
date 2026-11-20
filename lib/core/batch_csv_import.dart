@@ -1,4 +1,4 @@
-/// Extracts the URL column from an RFC 4180-style UTF-8 CSV link list.
+/// Extracts the URL column from a UTF-8 CSV or tab-separated link list.
 ///
 /// Input decoding and the 1 MiB file limit are handled by BatchTextImport.
 /// All extracted links still pass through BatchLinks / UrlGuard before use.
@@ -118,14 +118,14 @@ class BatchCsvImport {
     return urls.join('\n');
   }
 
-  /// Excel and regional exports often use semicolons instead of commas.
-  /// Only select that dialect when the first record supplies a recognizable
-  /// URL heading or a URL in a later column. A single signed URL containing
-  /// semicolons must remain intact rather than being mistaken for a CSV row.
+  /// Excel and regional exports may use semicolons or tabs instead of commas.
+  /// Select an alternate dialect only for a recognizable URL heading or a
+  /// URL in a later column. Signed URLs must not be split on punctuation.
   static String _detectDelimiter(String csv) {
     var quoted = false;
     var commas = 0;
     var semicolons = 0;
+    var tabs = 0;
     final firstRecord = StringBuffer();
     for (var i = 0; i < csv.length; i++) {
       final char = csv[i];
@@ -142,9 +142,87 @@ class BatchCsvImport {
       if (!quoted) {
         if (char == ',') commas++;
         if (char == ';') semicolons++;
+        if (char == '\t') tabs++;
       }
     }
-    if (semicolons == 0) return ',';
+    // Single-column CSV exports may have a URL heading (or a plain first
+    // URL) followed by signed links containing literal commas in their query.
+    // The first record alone has no delimiter, so the normal comma parser
+    // would silently truncate *later* signed links. Only choose URL-per-line
+    // mode when every subsequent nonempty record is an unquoted HTTP(S) URL
+    // and any commas occur after its query marker. Explicit multi-column
+    // headers and quoted CSV/TSV records retain the standard CSV parser.
+    final firstLine = firstRecord.toString().trim();
+    final normalizedFirst = firstLine.toLowerCase().replaceAll(
+      RegExp(r'[\s_-]+'), '',
+    );
+    const singleUrlHeaders = <String>{
+      'url', 'link', 'downloadurl', 'downloadlink',
+      'fileurl', 'filelink', 'sourceurl', 'sourcelink',
+      'الرابط', 'رابطالتحميل', 'رابطالتنزيل', 'رابطالملف',
+    };
+    if (commas == 0 && semicolons == 0 && tabs == 0 &&
+        !firstLine.contains('"') &&
+        (singleUrlHeaders.contains(normalizedFirst) ||
+            _looksLikeHttpUrl(firstLine))) {
+      final lines = csv.split(RegExp(r'\r\n|\r|\n'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+      if (lines.length > 1) {
+        final later = lines.skip(1);
+        final hasSignedComma = later.any((line) {
+          final comma = line.indexOf(',');
+          return comma >= 0 && line.indexOf('?') >= 0 &&
+              comma > line.indexOf('?');
+        });
+        final allSingleUrls = later.every((line) {
+          if (line.contains('"') || line.contains('\t')) return false;
+          final comma = line.indexOf(',');
+          final query = line.indexOf('?');
+          return _looksLikeHttpUrl(line) &&
+              (comma < 0 || (query >= 0 && comma > query));
+        });
+        if (hasSignedComma && allSingleUrls) {
+          return '\u0000'; // No separator: preserve complete signed URLs.
+        }
+      }
+    }
+
+    // A line-per-link export can contain unquoted commas inside signed
+    // query values. Without a header or another explicit delimiter, treating
+    // these as CSV columns would silently truncate authorization tokens.
+    // Preserve each complete HTTP(S) URL as a single field. A genuine CSV
+    // with an explicit URL header still uses the normal comma dialect.
+    // URL-only exports can contain both comma and semicolon query values.
+    // Require every record to be a single unquoted URL with punctuation
+    // confined to its query; explicit CSV headers retain their dialect.
+    if (commas > 0 && semicolons > 0 && tabs == 0) {
+      final lines = csv.split(RegExp(r'\r\n|\r|\n'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty);
+      if (lines.every((line) {
+        final query = line.indexOf('?');
+        final comma = line.indexOf(',');
+        final semicolon = line.indexOf(';');
+        return !RegExp(r'[\s"]').hasMatch(line) &&
+            _looksLikeHttpUrl(line) &&
+            (comma < 0 || (query >= 0 && comma > query)) &&
+            (semicolon < 0 || (query >= 0 && semicolon > query));
+      })) {
+        return '\u0000';
+      }
+    }
+    if (commas > 0 && semicolons == 0 && tabs == 0) {
+      final firstLine = firstRecord.toString().trim();
+      final query = firstLine.indexOf('?');
+      final comma = firstLine.indexOf(',');
+      if (query >= 0 && comma > query &&
+          !firstLine.contains('"') && _looksLikeHttpUrl(firstLine)) {
+        return '\u0000'; // Sentinel absent from validated public URLs.
+      }
+    }
+    if (semicolons == 0 && tabs == 0) return ',';
 
     const headings = <String>{
       'downloadurl', 'downloadlink', 'fileurl', 'filelink',
@@ -164,9 +242,35 @@ class BatchCsvImport {
     // "Title, description;Download URL") is not evidence of comma CSV.
     // Prefer an unambiguous recognized heading over punctuation counts.
     // When both dialects appear plausible, retain the legacy comma default.
-    final semicolonHeader = hasHeader(';');
+    final semicolonHeader = semicolons > 0 && hasHeader(';');
     final commaHeader = commas > 0 && hasHeader(',');
+    final tabHeader = tabs > 0 && hasHeader('\t');
+    // A tab-separated header can include commas/semicolons in a description.
+    // Recognized comma/semicolon headers retain their existing precedence.
+    if (tabHeader && !commaHeader && !semicolonHeader) return '\t';
     if (semicolonHeader && !commaHeader) return ';';
+    if (commaHeader) return ',';
+    if (tabHeader) return '\t';
+
+    // Headerless TSV: the HTTP(S) URL can be the first or a later column.
+    // Only unquoted tabs count as delimiters; preserve signed URL punctuation.
+    if (tabs > 0 && firstRecord.toString().split('\t').any(
+        (cell) => _looksLikeHttpUrl(cell.trim().replaceAll('"', '')))) {
+      return '\t';
+    }
+    // A title followed by a semicolon and a URL with a comma in its
+    // query is a regional CSV record, not a comma-separated record.
+    final separator = firstRecord.toString().indexOf(';');
+    if (separator > 0) {
+      final prefix = firstRecord.toString().substring(0, separator).trim();
+      final suffix = firstRecord.toString().substring(separator + 1).trim();
+      final query = suffix.indexOf('?');
+      final comma = suffix.indexOf(',');
+      if (!prefix.contains(',') && !_looksLikeHttpUrl(prefix) &&
+          query >= 0 && comma > query && _looksLikeHttpUrl(suffix)) {
+        return ';';
+      }
+    }
     if (commas > 0) return ',';
     if (semicolonHeader) return ';';
 

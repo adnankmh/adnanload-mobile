@@ -9,6 +9,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 import zipfile
 from collections import defaultdict
 from pathlib import Path
@@ -20,19 +21,35 @@ def inspect_apk(apk: Path) -> dict:
     by_abi = defaultdict(int)
     by_prefix = defaultdict(int)
     native_files = []
+    non_native_files = []
+    seen_entries = set()
     with zipfile.ZipFile(apk) as archive:
         bad = archive.testzip()
         if bad:
             raise ValueError(f"Corrupted APK entry: {bad}")
         for entry in archive.infolist():
+            # Validate directory records too; a malicious "../" directory
+            # must not bypass the archive integrity checks.
+            name = entry.filename
+            path = name[:-1] if entry.is_dir() else name
+            parts = path.split("/")
+            if (not path or path.startswith("/") or "\\" in path
+                    or re.match(r"^[A-Za-z]:", path)
+                    or any(part in ("", ".", "..") for part in parts)
+                    or any(unicodedata.category(ch) in ("Cc", "Cf")
+                           for ch in path)):
+                raise ValueError(f"Unsafe APK entry path: {name}")
+            if name in seen_entries:
+                raise ValueError(f"Duplicate APK entry: {name}")
+            seen_entries.add(name)
             if entry.is_dir():
                 continue
-            parts = entry.filename.split("/")
             if len(parts) >= 3 and parts[0] == "lib":
                 by_abi[parts[1]] += entry.compress_size
                 native_files.append((entry.filename, entry.compress_size))
             else:
                 by_prefix[parts[0]] += entry.compress_size
+                non_native_files.append((entry.filename, entry.compress_size))
 
     name_match = re.fullmatch(
         r"app-(arm64-v8a|armeabi-v7a|x86_64)-release\.apk", apk.name
@@ -64,7 +81,13 @@ def inspect_apk(apk: Path) -> dict:
         "top_native_files": [
             {"path": filename, "compressed_mb": round(byte_count / 1_000_000, 2)}
             for filename, byte_count in sorted(
-                native_files, key=lambda row: row[1], reverse=True
+                native_files, key=lambda row: (-row[1], row[0])
+            )[:18]
+        ],
+        "top_non_native_files": [
+            {"path": filename, "compressed_mb": round(byte_count / 1_000_000, 2)}
+            for filename, byte_count in sorted(
+                non_native_files, key=lambda row: (-row[1], row[0])
             )[:18]
         ],
     }
@@ -84,6 +107,8 @@ def main() -> int:
         print(f"{report['name']}: {report['mb']} MB ({report['mib']} MiB)")
         for entry in report["top_native_files"][:8]:
             print(f"  {entry['compressed_mb']} MB  {entry['path']}")
+        for entry in report["top_non_native_files"][:8]:
+            print(f"  {entry['compressed_mb']} MB  {entry['path']}")
         if report["mb"] > args.limit_mb:
             print(
                 f"::warning title=APK size target not yet met::{report['name']} "
@@ -100,7 +125,11 @@ def main() -> int:
             out.write(
                 f"{report['name']}: {report['mb']} MB ({report['mib']} MiB)\n"
             )
+            out.write("Largest native files:\n")
             for entry in report["top_native_files"]:
+                out.write(f"  {entry['compressed_mb']} MB {entry['path']}\n")
+            out.write("Largest non-native files:\n")
+            for entry in report["top_non_native_files"]:
                 out.write(f"  {entry['compressed_mb']} MB {entry['path']}\n")
     return 0
 

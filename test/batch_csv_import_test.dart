@@ -153,4 +153,11 @@ void main() {
       'https://cdn.example.org/file.zip?signature=a,b;',
     ]);
   });
+  test('headerless semicolon CSV preserves commas in signed URL queries', () {
+    const csv = 'First;https://example.org/a.zip?sig=a,b\n'
+        'Second;https://example.org/b.zip?sig=c,d\n';
+    expect(BatchCsvImport.extractUrls(csv),
+        'https://example.org/a.zip?sig=a,b\n'
+        'https://example.org/b.zip?sig=c,d');
+  });
 }

@@ -1,4 +1,4 @@
-import 'dart:convert';
+import '../core/backup_import_reader.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -78,7 +78,10 @@ class _UltimateToolsPanelState extends State<UltimateToolsPanel> {
     try {
       final file=await FilePicker.pickFile(type:FileType.custom,allowedExtensions:['json']);
       if(file==null)return;
-      final text=utf8.decode(await file.readAsBytes());
+      // Android SAF documents may not expose a size or local path. Enforce
+      // the byte limit while reading, before decoding or parsing JSON.
+      BackupImportReader.checkReportedLength(file.lengthSync());
+      final text=await BackupImportReader.decodeStream(file.readAsByteStream());
       final count=await widget.repo.restoreBackup(BackupService.parse(text));
       _showMessage('${t('restoreSuccess')}: $count');
     }catch(e){_showMessage(e.toString());}

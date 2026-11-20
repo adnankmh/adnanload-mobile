@@ -26,19 +26,20 @@ class _BatchDownloadSheetState extends State<BatchDownloadSheet> {
     if (busy) return;
     try {
       final selected = await FilePicker.pickFile(
-        type: FileType.custom, allowedExtensions: const ['txt', 'csv'],
+        type: FileType.custom, allowedExtensions: const ['txt', 'csv', 'tsv'],
       );
       if (selected == null || !mounted) return;
       final knownLength = selected.lengthSync();
       if (knownLength != null && knownLength > BatchTextImport.maxBytes) {
-        throw const FormatException('TXT file exceeds 1 MiB');
+        throw const FormatException('Link list exceeds 1 MiB');
       }
       // Read through the picker API: Android SAF documents may not have a
       // usable local path or report a file size.
       final decoded = await BatchTextImport.decodeStream(
         selected.readAsByteStream(),
       );
-      final imported = selected.name.toLowerCase().endsWith('.csv')
+      final filename = selected.name.toLowerCase();
+      final imported = filename.endsWith('.csv') || filename.endsWith('.tsv')
           ? BatchCsvImport.extractUrls(decoded)
           : decoded;
       if (!mounted) return;
