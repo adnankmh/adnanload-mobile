@@ -15,7 +15,7 @@ def run_build(command, log_path, *, attempts=3, sleep=time.sleep, runner=subproc
     path.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, attempts + 1):
         with path.open("a", encoding="utf-8") as output:
-            output.write(f"\\n--- APK build attempt {attempt}/{attempts} ---\\n")
+            output.write(f"\n--- APK build attempt {attempt}/{attempts} ---\n")
             output.flush()
             result = runner(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, errors="replace", check=False)
