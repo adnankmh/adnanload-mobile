@@ -83,6 +83,7 @@ jobs:
         run: |
           python3 tools/test_version_policy.py
           python3 tools/test_release_ci.py
+          python3 tools/test_retry_apk_build.py
           python3 tools/test_apk_size_report.py
           python3 tools/test_android_config.py
           python3 tools/test_ci_signing.py
@@ -121,7 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/ci-diagnostics
-          flutter build apk --release --no-pub --target-platform android-arm64 --split-per-abi 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
+          python3 tools/retry_apk_build.py --log build/ci-diagnostics/flutter-release-build.log -- flutter build apk --release --no-pub --target-platform android-arm64 --split-per-abi
 
       - name: Build split Release APKs (optional, other CPU architectures)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.split_apks }}
@@ -129,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/ci-diagnostics
-          flutter build apk --release --no-pub --split-per-abi 2>&1 | tee build/ci-diagnostics/flutter-release-build.log
+          python3 tools/retry_apk_build.py --log build/ci-diagnostics/flutter-release-build.log -- flutter build apk --release --no-pub --split-per-abi
 
       - name: Validate generated APK archive and Android package
         env:
