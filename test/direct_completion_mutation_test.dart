@@ -96,6 +96,24 @@ void main() {
     expect(result?.error, 'verificationFailed');
   });
 
+  test('hashes the resolved target rather than a mutable symlink alias', () async {
+    final original = await File('${root.path}/original-target.bin')
+        .writeAsBytes([97, 98, 99]);
+    final link = await Link('${root.path}/alias.bin').create(original.path);
+    final result = await DirectCompletionVerifier.inspect(
+      resolvePath: () async => link.path,
+      fallbackPath: '',
+      expectedSha256: digest,
+      isCurrent: () => true,
+      hashFile: (target) async {
+        expect(target.path, await original.resolveSymbolicLinks());
+        return digest;
+      },
+    );
+    expect(result?.status, 'complete');
+    expect(result?.path, link.path);
+  });
+
   test('rejects file removed after first stat without an expected digest', () async {
     final file = await File('${root.path}/without-digest.bin')
         .writeAsBytes([1, 2, 3]);

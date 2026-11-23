@@ -18,8 +18,14 @@ class MediaDetector {
         }
       } catch (_) {}
     };
-    document.querySelectorAll('video[src],video source[src],audio[src],audio source[src],a[download]')
-      .forEach(el => add(el.currentSrc || el.src || el.href));
+    document.querySelectorAll('video[src],video source[src],audio[src],audio source[src],a[download][href]')
+      .forEach(el => {
+        // An empty src or href resolves to the current page in the DOM.
+        const raw = el.getAttribute('src') || el.getAttribute('href');
+        if (el.currentSrc || (raw && raw.trim())) {
+          add(el.currentSrc || el.src || el.href);
+        }
+      });
     document.querySelectorAll('meta[property="og:video"],meta[property="og:audio"]')
       .forEach(el => add(el.content));
     return JSON.stringify(Array.from(found));
@@ -50,9 +56,12 @@ class MediaDetector {
       final uri=UrlGuard.validate(item);
       if (uri==null) continue;
       // Keep signed query bytes intact; only discard client-side anchors.
-      final validated = uri.toString();
-      final fragment = validated.indexOf('#');
-      final url = fragment < 0 ? validated : validated.substring(0, fragment);
+      final canonical = uri.removeFragment().toString();
+      final source = item.trim().split('#').first;
+      final queryStart = source.indexOf('?');
+      final url = queryStart < 0
+          ? canonical
+          : canonical.split('?').first + source.substring(queryStart);
       if (seen.add(url)) urls.add(url);
       if (urls.length>=12)break;
     }

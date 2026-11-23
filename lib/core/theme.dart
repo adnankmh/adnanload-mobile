@@ -30,6 +30,14 @@ class BrandThemes {
     );
   }
 
+  /// Keep typography usable even when a restored preference is malformed.
+  /// Match the supported accessibility zoom range in Settings, while treating
+  /// NaN, infinity and nonpositive values as the default (not maximum zoom).
+  static double _safeFontScale(double scale) {
+    if (!scale.isFinite || scale <= 0) return 1.0;
+    return scale.clamp(0.9, 1.35).toDouble();
+  }
+
   static ThemeData build(String theme, {double fontScale = 1.0}) {
     final dark = theme == 'dark';
     final gold = theme == 'gold';
@@ -47,7 +55,7 @@ class BrandThemes {
         surface: surface,
       ),
     );
-    final textTheme = _scaledTextTheme(base.textTheme, 1.05 * fontScale);
+    final textTheme = _scaledTextTheme(base.textTheme, 1.05 * _safeFontScale(fontScale));
     return base.copyWith(
       scaffoldBackgroundColor: background,
       textTheme: textTheme,

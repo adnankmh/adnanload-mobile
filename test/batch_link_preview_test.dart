@@ -14,6 +14,14 @@ void main() {
     expect(item.isPlaylist, isFalse);
   });
 
+  test('non-UTF-8 escaped filename does not break batch preview', () {
+    const url = 'https://example.org/%FF.zip?sig=opaque';
+    final item = BatchLinkPreview.fromUrl(url);
+    expect(item.url, url);
+    expect(item.kind, 'direct');
+    expect(item.suggestedName, isNull);
+  });
+
   test('page and extensionless downloads do not invent filenames', () {
     expect(BatchLinkPreview.fromUrl('https://example.org/get?id=12')
         .suggestedName, isNull);

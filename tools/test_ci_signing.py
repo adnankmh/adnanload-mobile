@@ -3,7 +3,7 @@ from pathlib import Path
 import base64
 import tempfile
 import unittest
-from configure_ci_signing import configure, SIGNING_ENV
+from configure_ci_signing import configure, java_property_value, SIGNING_ENV
 
 class SigningConfigurationTests(unittest.TestCase):
     def setUp(self):
@@ -36,6 +36,9 @@ android {
     def test_invalid_base64_fails(self):
         with self.assertRaisesRegex(RuntimeError,'base64'):
             configure({name:'x' for name in SIGNING_ENV},self.root)
+
+    def test_java_properties_preserve_password_characters(self):
+        self.assertEqual(java_property_value(' a\\ع '), r'\u0020a\\\u0639 ')
 
     def test_configuration_is_idempotent(self):
         env={

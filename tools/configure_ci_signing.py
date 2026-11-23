@@ -1,6 +1,7 @@
 """Optional GitHub Release APK signing, without publishing keys in source."""
 import base64
 import binascii
+import json
 import os
 from pathlib import Path
 
@@ -11,10 +12,17 @@ SIGNING_ENV = (
 )
 
 
+def java_property_value(value):
+    escaped = json.dumps(value, ensure_ascii=True)[1:-1]
+    if escaped.startswith(' '):
+        escaped = r'\u0020' + escaped[1:]
+    return escaped
+
+
 def configure(env=None, root=ROOT):
     env = os.environ if env is None else env
     root = Path(root)
-    values = [env.get(key, '').strip() for key in SIGNING_ENV]
+    values = [env.get(key, '') for key in SIGNING_ENV]
     if not any(values):
         print('::warning::No production signing secrets. Release-mode APK uses a temporary debug certificate, suitable for installation/testing only.')
         return 'debug-key'
@@ -41,10 +49,10 @@ def configure(env=None, root=ROOT):
     store_path.write_bytes(keystore)
     props = root/'android/key.properties'
     props.write_text('\n'.join([
-        f'storePassword={store_password}',
-        f'keyPassword={key_password}',
-        f'keyAlias={key_alias}',
-        f'storeFile={store_path.as_posix()}',
+        f'storePassword={java_property_value(store_password)}',
+        f'keyPassword={java_property_value(key_password)}',
+        f'keyAlias={java_property_value(key_alias)}',
+        f'storeFile={java_property_value(store_path.as_posix())}',
     ])+'\n', encoding='utf-8')
 
     content = gradle.read_text(encoding='utf-8')

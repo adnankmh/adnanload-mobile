@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/app_strings.dart';
+import '../core/file_hub_filter.dart';
 import '../services/download_repository.dart';
 import '../screens/media_page.dart';
 import '../widgets/premium_download_card.dart';
@@ -21,22 +22,11 @@ class _FilesHubPageState extends State<FilesHubPage> {
   String selected='all';
   String fileQuery='';
   bool newestFirst=true;
-  bool matches(String name) {
-    final lower=name.toLowerCase();
-    const videos=['.mp4','.mkv','.webm','.avi','.mov'];
-    const audio=['.mp3','.m4a','.flac','.wav','.ogg','.opus'];
-    const docs=['.pdf','.doc','.docx','.txt','.csv','.xls','.xlsx','.ppt','.pptx','.epub'];
-    if(selected=='videoFiles')return videos.any(lower.endsWith);
-    if(selected=='audioFiles')return audio.any(lower.endsWith);
-    if(selected=='documentFiles')return docs.any(lower.endsWith);
-    if(selected=='otherFiles')return ![...videos,...audio,...docs].any(lower.endsWith);
-    return true;
-  }
   @override
   Widget build(BuildContext context) {
     final s = widget.strings.t;
     final finished = widget.repo.items.where((x) => x.status == 'complete' &&
-      matches(x.name) && x.name.toLowerCase().contains(fileQuery.trim().toLowerCase())).toList()
+      FileHubFilter.matches(x, selected: selected, query: fileQuery)).toList()
       ..sort((a,b) => newestFirst ? b.addedAt.compareTo(a.addedAt)
                              : a.addedAt.compareTo(b.addedAt));
     return DefaultTabController(length: 2, child: Column(children: [

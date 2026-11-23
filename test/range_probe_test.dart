@@ -31,6 +31,14 @@ class _ProbeHeaders implements HttpHeaders {
   @override
   String? value(String name) => values[name.toLowerCase()];
 
+  // HttpHeaders exposes absent optional headers as null, not an exception.
+  // The range probe reads Vary via [] to support repeated response fields.
+  @override
+  List<String>? operator [](String name) {
+    final value = values[name.toLowerCase()];
+    return value == null ? null : <String>[value];
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -118,6 +126,21 @@ void main() {
     expect(safe(contentEncoding: 'gzip'), isFalse);
     expect(safe(contentEncoding: 'br'), isFalse);
     expect(safe(contentEncoding: 'identity'), isTrue);
+  });
+
+  test('missing optional Vary header behaves like real HttpHeaders', () async {
+    final headers = _ProbeHeaders({
+      'accept-ranges': 'bytes',
+      'etag': '"v1"',
+      'content-range': 'bytes 0-0/4096',
+    });
+    expect(headers['vary'], isNull);
+    expect(headers['etag'], <String>['"v1"']);
+    expect(await RangeProbe.verifyProbeResponse(_ProbeResponse(
+      body: const [0x41],
+      contentLength: 1,
+      headers: headers,
+    )), isTrue);
   });
 
   test('streamed HTTP 206 response needs the advertised single body byte', () async {

@@ -1,0 +1,68 @@
+name: Prune old Actions runs (keep latest five)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/prune-actions-history.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: adnanload-prune-actions-history
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Keep five newest runs; delete completed older runs and their artifacts
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const allRuns = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              { owner, repo, per_page: 100 },
+              response => response.data.workflow_runs
+            );
+            const ordered = [...allRuns].sort((a, b) =>
+              b.created_at.localeCompare(a.created_at) || b.id - a.id
+            );
+            if (ordered.length < 5) {
+              core.info(`Only ${ordered.length} runs exist; nothing to delete.`);
+              return;
+            }
+            const protectedIds = new Set(ordered.slice(0, 5).map(run => run.id));
+            protectedIds.add(context.runId);
+            const oldCompleted = ordered.filter(
+              run => !protectedIds.has(run.id) && run.status === 'completed'
+            );
+            core.info(`Found ${ordered.length} runs; protecting five newest and current run. Pruning ${oldCompleted.length} completed older runs.`);
+            let deleted = 0;
+            const failures = [];
+            for (const run of oldCompleted) {
+              try {
+                await github.rest.actions.deleteWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: run.id
+                });
+                deleted += 1;
+              } catch (error) {
+                failures.push(`${run.id}: ${error.message}`);
+                core.warning(`Failed to delete run ${run.id}: ${error.message}`);
+              }
+            }
+            core.summary
+              .addHeading('ADNANLOAD Actions history cleanup')
+              .addRaw(`Total before: ${ordered.length}; deleted: ${deleted}; failed: ${failures.length}. Latest five run records were protected.`)
+              .write();
+            if (failures.length) {
+              core.setFailed(`Failed to delete ${failures.length} old runs; see warnings.`);
+            }

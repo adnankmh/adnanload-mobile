@@ -9,6 +9,9 @@ import 'package:crypto/crypto.dart';
 class DirectCompletionVerifier {
   DirectCompletionVerifier._();
 
+  // Compile once; restored checksums are validated on every completion.
+  static final RegExp _sha256Pattern = RegExp(r'^[0-9a-fA-F]{64}$');
+
   static bool _sameFileGeneration(
     FileStat before,
     FileStat after,
@@ -76,10 +79,21 @@ class DirectCompletionVerifier {
             path: path, status: 'error', error: 'verificationFailed');
         }
       }
+      // Enqueue validates user-entered digests, but restored history may be
+      // corrupted or edited. Never hash a potentially large completed file
+      // for a malformed persisted checksum, and never treat it as unchecked.
+      if (!_sha256Pattern.hasMatch(expectedSha256)) {
+        if (!isCurrent()) return null;
+        return DirectCompletionResult(
+          path: path, status: 'error', error: 'verificationFailed');
+      }
       try {
+        // Hash the resolved target, not a mutable symlink alias. The
+        // final path check still rejects a destination that was retargeted.
+        final target = File(canonicalBefore);
         final actual = await (hashFile == null
-            ? sha256.bind(file.openRead()).first.then((digest) => digest.toString())
-            : hashFile(file));
+            ? sha256.bind(target.openRead()).first.then((digest) => digest.toString())
+            : hashFile(target));
         if (!isCurrent()) return null;
         final after = await file.stat();
         if (!isCurrent()) return null;

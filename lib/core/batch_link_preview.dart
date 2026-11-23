@@ -28,10 +28,34 @@ class BatchLinkPreview {
     final detected = SmartLink.kind(url, preferred: preferred);
     final playlist = detected == 'playlist';
     final kind = playlist ? 'video' : detected;
-    final last = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
+    // Legacy servers may use non-UTF-8 percent-encoded filenames.
+    // Keep the original URL usable; only the optional preview is unknown.
+    var last = '';
+    try {
+      final segments = uri.pathSegments;
+      if (segments.isNotEmpty) last = segments.last;
+    } on FormatException {
+      // Do not guess a filename or rewrite the encoded URL.
+    }
     // A page URL, or a file without a recognizable extension, cannot give
-    // us a reliable filename until the server responds.
+    // us a reliable filename until the server responds. Common web document
+    // and server-script suffixes are not reliable download filenames.
+    // Uri.pathSegments decodes escapes, so an encoded slash/backslash may
+    // conceal multiple path components inside the apparent last segment.
+    final pageLike = RegExp(
+      r'\.(?:s?html?|xhtml|php\d*|aspx?|ashx|jspx?|cfm|cgi|do|action)$',
+      caseSensitive: false,
+    ).hasMatch(last);
+    // One decoding pass may leave a percent-encoded separator behind (for
+    // example %252F becomes %2F). Some servers decode again before naming
+    // the file, so do not present a potentially misleading local filename.
+    // Also cover further %25 layers without decoding or altering signed URLs.
+    final hasEncodedSeparator = last.contains('/') ||
+        last.contains('\\') ||
+        RegExp(r'%(?:25)*(?:2f|5c)', caseSensitive: false).hasMatch(last);
     final fileLike = kind == 'direct' &&
+        !pageLike &&
+        !hasEncodedSeparator &&
         RegExp(r'\.[a-zA-Z0-9]{1,16}$').hasMatch(last);
     return BatchLinkPreview(
       url: url,

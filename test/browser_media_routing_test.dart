@@ -55,6 +55,13 @@ void main() {
     ]);
   });
 
+  test('keeps escape spelling and ordering within a signed query', () {
+    const url = 'https://cdn.example.org/v.mp4?sig=A%2b%41&x=2&x=1';
+    expect(MediaDetector.parse([url + '#t=1', url]), [url]);
+    expect(MediaDetector.parse(['https://cdn.example.org/v.mp4#?t=1']),
+        ['https://cdn.example.org/v.mp4']);
+  });
+
   test('fragment variants do not consume the 12-candidate DOM budget', () {
     final links = MediaDetector.parse(jsonEncode([
       for (var i = 0; i < 11; i++)
