@@ -10,11 +10,22 @@ class MediaDetector {
     const add = (value) => {
       if (!value || found.size >= 12) return;
       try { const u = new URL(value, document.baseURI);
-        if (u.protocol === 'https:' || u.protocol === 'http:') found.add(u.href);
+        if (u.protocol === 'https:' || u.protocol === 'http:') {
+          // Fragments are player state, not part of the downloaded resource.
+          // Deduplicate before the 12-candidate DOM limit is applied.
+          u.hash = '';
+          found.add(u.href);
+        }
       } catch (_) {}
     };
-    document.querySelectorAll('video[src],video source[src],audio[src],audio source[src],a[download]')
-      .forEach(el => add(el.currentSrc || el.src || el.href));
+    document.querySelectorAll('video[src],video source[src],audio[src],audio source[src],a[download][href]')
+      .forEach(el => {
+        // An empty src or href resolves to the current page in the DOM.
+        const raw = el.getAttribute('src') || el.getAttribute('href');
+        if (el.currentSrc || (raw && raw.trim())) {
+          add(el.currentSrc || el.src || el.href);
+        }
+      });
     document.querySelectorAll('meta[property="og:video"],meta[property="og:audio"]')
       .forEach(el => add(el.content));
     return JSON.stringify(Array.from(found));
@@ -39,12 +50,19 @@ class MediaDetector {
     } catch (_) {return const [];} 
     if(parsed is! List) return const [];
     final urls = <String>[];
+    final seen = <String>{};
     for(final item in parsed) {
       if (item is! String || item.length > 2048) continue;
       final uri=UrlGuard.validate(item);
       if (uri==null) continue;
-      final url=uri.toString();
-      if (!urls.contains(url)) urls.add(url);
+      // Keep signed query bytes intact; only discard client-side anchors.
+      final canonical = uri.removeFragment().toString();
+      final source = item.trim().split('#').first;
+      final queryStart = source.indexOf('?');
+      final url = queryStart < 0
+          ? canonical
+          : canonical.split('?').first + source.substring(queryStart);
+      if (seen.add(url)) urls.add(url);
       if (urls.length>=12)break;
     }
     return urls;
