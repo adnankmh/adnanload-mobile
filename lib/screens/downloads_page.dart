@@ -20,6 +20,21 @@ class _DownloadsPageState extends State<DownloadsPage> {
   String filter = 'all';
   String search = '';
   String sortMode = 'newest';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _resetFilters() {
+    _searchController.clear();
+    setState(() {
+      search = '';
+      filter = 'all';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +46,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
       sortMode,
     );
     final metrics = widget.repo.metrics;
+    final arabic = widget.strings.locale == 'ar';
+    final hasFilters = filter != 'all' || search.trim().isNotEmpty;
     final active = metrics.active;
     final completed = metrics.completed;
     return Column(children: [
@@ -54,7 +71,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
           },icon:const Icon(Icons.replay_rounded,size:18),label:Text(t('retryAllFailed'))),
         ])),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 9),
-        child: TextField(onChanged: (text) => setState(() => search = text),
+        child: TextField(controller: _searchController,
+          onChanged: (text) => setState(() => search = text),
           decoration: InputDecoration(hintText: t('search'),
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: PopupMenuButton<String>(
@@ -79,22 +97,40 @@ class _DownloadsPageState extends State<DownloadsPage> {
             )))),
       SizedBox(height: 51, child: ListView(scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 17), children: [
-          for (final key in ['all', 'active', 'finished', 'failed'])
+          for (final key in DownloadListFilter.filters)
             Padding(padding: const EdgeInsetsDirectional.only(end: 9),
-              child: ChoiceChip(label: Text(t(key)), selected: filter == key,
+              child: ChoiceChip(label: Text(key == 'retrying' || key == 'verifying'
+                  ? DownloadListFilter.label(key, arabic: arabic) : t(key)),
+                selected: filter == key,
                 onSelected: (_) => setState(() => filter = key))),
         ])),
-      const SizedBox(height: 10),
+      Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(17, 2, 17, 6),
+        child: Row(children: [
+          Expanded(child: Text(arabic
+              ? 'عرض ${entries.length} من ${metrics.total} تنزيل'
+              : 'Showing ${entries.length} of ${metrics.total} downloads',
+            style: Theme.of(context).textTheme.bodySmall)),
+          if (hasFilters) TextButton(onPressed: _resetFilters,
+            child: Text(arabic ? 'مسح التصفية' : 'Clear filters')),
+        ]),
+      ),
       Expanded(child: entries.isEmpty
         ? Center(child: Padding(padding: const EdgeInsets.all(22),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.cloud_download_outlined, size: 72, color: scheme.primary),
             const SizedBox(height: 10),
-            Text(t('empty'), style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 7), Text(t('emptyDesc'), textAlign: TextAlign.center),
+            Text(hasFilters ? (arabic ? 'لا توجد نتائج مطابقة' : 'No matching downloads')
+                : t('empty'), style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 7), Text(hasFilters
+                ? (arabic ? 'غيّر البحث أو التصفية لعرض التنزيلات.'
+                    : 'Change your search or filters to see downloads.')
+                : t('emptyDesc'), textAlign: TextAlign.center),
             const SizedBox(height: 17),
-            FilledButton.icon(onPressed: widget.addDownload,
-              icon: const Icon(Icons.add), label: Text(t('add'))),
+            FilledButton.icon(onPressed: hasFilters ? _resetFilters : widget.addDownload,
+              icon: Icon(hasFilters ? Icons.filter_alt_off : Icons.add),
+              label: Text(hasFilters ? (arabic ? 'مسح التصفية' : 'Clear filters') : t('add'))),
           ])))
         : ListView.builder(padding: const EdgeInsets.fromLTRB(15, 0, 15, 70),
             itemCount: entries.length,

@@ -3,7 +3,9 @@ import '../models/download_entry.dart';
 /// View-only sorting for the Downloads screen. Never changes queue order,
 /// persisted history, native task priority or scheduling.
 class DownloadListSort {
-  static const modes = <String>['newest', 'oldest', 'name', 'priority', 'scheduled'];
+  static const modes = <String>[
+    'newest', 'oldest', 'name', 'priority', 'scheduled', 'progress', 'speed',
+  ];
 
   static List<DownloadEntry> ordered(
       Iterable<DownloadEntry> source, String mode) {
@@ -17,6 +19,8 @@ class DownloadListSort {
         // Pending scheduled jobs first, ordered by their requested start time.
         // Completed, canceled and unscheduled jobs retain newest-first order.
         'scheduled' => _compareScheduled(a, b),
+        'progress' => _progress(b).compareTo(_progress(a)),
+        'speed' => _speed(b).compareTo(_speed(a)),
         _ => b.addedAt.compareTo(a.addedAt),
       };
       if (comparison != 0) return comparison;
@@ -92,6 +96,19 @@ class DownloadListSort {
     return null;
   }
 
+  // Normalize native callback values without mutating persisted jobs.
+  static double _progress(DownloadEntry item) {
+    if (item.status == 'complete') return 1.0;
+    final value = item.progress;
+    return value.isFinite ? value.clamp(0.0, 1.0).toDouble() : 0.0;
+  }
+
+  // Paused/completed tasks may retain a stale rate. Only live transfers
+  // participate in the speed sort.
+  static double _speed(DownloadEntry item) =>
+      item.status == 'running' && item.speed.isFinite && item.speed > 0
+          ? item.speed : 0.0;
+
   static int _compareScheduled(DownloadEntry a, DownloadEntry b) {
     final aTime = _nextScheduledTime(a);
     final bTime = _nextScheduledTime(b);
@@ -116,6 +133,8 @@ class DownloadListSort {
         'name' => 'حسب الاسم',
         'priority' => 'حسب أولوية الطابور',
         'scheduled' => 'الجدولة وإعادة المحاولة الأقرب أولاً',
+        'progress' => 'الأعلى تقدمًا',
+        'speed' => 'الأسرع تحميلًا',
         _ => 'الأحدث أولاً',
       };
     }
@@ -124,6 +143,8 @@ class DownloadListSort {
       'name' => 'Name',
       'priority' => 'Queue priority',
       'scheduled' => 'Next scheduled / retry',
+      'progress' => 'Highest progress',
+      'speed' => 'Fastest transfer',
       _ => 'Newest first',
     };
   }

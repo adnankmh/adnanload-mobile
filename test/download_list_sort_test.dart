@@ -152,6 +152,6 @@ void main() {
         'الجدولة وإعادة المحاولة الأقرب أولاً');
     expect(DownloadListSort.label('scheduled', arabic: false),
         'Next scheduled / retry');
-    expect(DownloadListSort.modes, hasLength(5));
+    expect(DownloadListSort.modes, hasLength(7));
   });
 }
